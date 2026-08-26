@@ -1,0 +1,901 @@
+{
+  "version": "5",
+  "dialect": "mysql",
+  "id": "3f1d4633-9dde-4c53-916a-69aac7e4878e",
+  "prevId": "96f604cd-42ee-4756-aca7-b3b11fa7333f",
+  "tables": {
+    "daily_checkins": {
+      "name": "daily_checkins",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "experimentVersion": {
+          "name": "experimentVersion",
+          "type": "enum('founder','coach','client_success')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "goal": {
+          "name": "goal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentState": {
+          "name": "currentState",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "blocker": {
+          "name": "blocker",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "availableTime": {
+          "name": "availableTime",
+          "type": "enum('15_minutes','30_minutes','60_minutes','90_plus_minutes')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "energyLevel": {
+          "name": "energyLevel",
+          "type": "enum('low','steady','high')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metricName": {
+          "name": "metricName",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "currentValue": {
+          "name": "currentValue",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "targetValue": {
+          "name": "targetValue",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "opportunities": {
+          "name": "opportunities",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "constraints": {
+          "name": "constraints",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "optionalContext": {
+          "name": "optionalContext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "enum('pending','recommended','needs_clarification')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "clarificationQuestion": {
+          "name": "clarificationQuestion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "daily_checkins_user_created_idx": {
+          "name": "daily_checkins_user_created_idx",
+          "columns": [
+            "userId",
+            "createdAt"
+          ],
+          "isUnique": false
+        },
+        "daily_checkins_experiment_idx": {
+          "name": "daily_checkins_experiment_idx",
+          "columns": [
+            "experimentVersion"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "daily_checkins_userId_users_id_fk": {
+          "name": "daily_checkins_userId_users_id_fk",
+          "tableFrom": "daily_checkins",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "daily_checkins_id": {
+          "name": "daily_checkins_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "experiment_events": {
+      "name": "experiment_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sessionId": {
+          "name": "sessionId",
+          "type": "varchar(96)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "experimentVersion": {
+          "name": "experimentVersion",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "eventName": {
+          "name": "eventName",
+          "type": "enum('landing_page_view','onboarding_started','onboarding_completed','skoot_generated','skoot_completed','skoot_skipped','outcome_reported','signup_started','signup_completed','feedback_recorded')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "experiment_events_version_event_idx": {
+          "name": "experiment_events_version_event_idx",
+          "columns": [
+            "experimentVersion",
+            "eventName"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "experiment_events_userId_users_id_fk": {
+          "name": "experiment_events_userId_users_id_fk",
+          "tableFrom": "experiment_events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "experiment_events_id": {
+          "name": "experiment_events_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "recommendations": {
+      "name": "recommendations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "checkinId": {
+          "name": "checkinId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "experimentVersion": {
+          "name": "experimentVersion",
+          "type": "enum('founder','coach','client_success')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "goalSummary": {
+          "name": "goalSummary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bottleneck": {
+          "name": "bottleneck",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rationale": {
+          "name": "rationale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "notTodayReason": {
+          "name": "notTodayReason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "notTodayItems": {
+          "name": "notTodayItems",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "modelId": {
+          "name": "modelId",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "recommendations_user_created_idx": {
+          "name": "recommendations_user_created_idx",
+          "columns": [
+            "userId",
+            "createdAt"
+          ],
+          "isUnique": false
+        },
+        "recommendations_checkin_idx": {
+          "name": "recommendations_checkin_idx",
+          "columns": [
+            "checkinId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "recommendations_userId_users_id_fk": {
+          "name": "recommendations_userId_users_id_fk",
+          "tableFrom": "recommendations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "recommendations_checkinId_daily_checkins_id_fk": {
+          "name": "recommendations_checkinId_daily_checkins_id_fk",
+          "tableFrom": "recommendations",
+          "tableTo": "daily_checkins",
+          "columnsFrom": [
+            "checkinId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "recommendations_id": {
+          "name": "recommendations_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "skoot_outcomes": {
+      "name": "skoot_outcomes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "skootId": {
+          "name": "skootId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "outcomeType": {
+          "name": "outcomeType",
+          "type": "enum('no_result_yet','made_progress','completed_milestone','received_reply','booked_call','generated_revenue','retained_client','other')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "measurableOutcome": {
+          "name": "measurableOutcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "revenueAmount": {
+          "name": "revenueAmount",
+          "type": "decimal(14,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "userFeedback": {
+          "name": "userFeedback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "skoot_outcomes_user_created_idx": {
+          "name": "skoot_outcomes_user_created_idx",
+          "columns": [
+            "userId",
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "skoot_outcomes_userId_users_id_fk": {
+          "name": "skoot_outcomes_userId_users_id_fk",
+          "tableFrom": "skoot_outcomes",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "skoot_outcomes_skootId_skoots_id_fk": {
+          "name": "skoot_outcomes_skootId_skoots_id_fk",
+          "tableFrom": "skoot_outcomes",
+          "tableTo": "skoots",
+          "columnsFrom": [
+            "skootId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "skoot_outcomes_id": {
+          "name": "skoot_outcomes_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "skoots": {
+      "name": "skoots",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "checkinId": {
+          "name": "checkinId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recommendationId": {
+          "name": "recommendationId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "experimentVersion": {
+          "name": "experimentVersion",
+          "type": "enum('founder','coach','client_success')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reasoning": {
+          "name": "reasoning",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "estimatedImpact": {
+          "name": "estimatedImpact",
+          "type": "enum('low','medium','high')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "enum('active','completed','skipped')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'active'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "completedAt": {
+          "name": "completedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "skoots_user_status_idx": {
+          "name": "skoots_user_status_idx",
+          "columns": [
+            "userId",
+            "status"
+          ],
+          "isUnique": false
+        },
+        "skoots_recommendation_idx": {
+          "name": "skoots_recommendation_idx",
+          "columns": [
+            "recommendationId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "skoots_userId_users_id_fk": {
+          "name": "skoots_userId_users_id_fk",
+          "tableFrom": "skoots",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "skoots_checkinId_daily_checkins_id_fk": {
+          "name": "skoots_checkinId_daily_checkins_id_fk",
+          "tableFrom": "skoots",
+          "tableTo": "daily_checkins",
+          "columnsFrom": [
+            "checkinId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "skoots_recommendationId_recommendations_id_fk": {
+          "name": "skoots_recommendationId_recommendations_id_fk",
+          "tableFrom": "skoots",
+          "tableTo": "recommendations",
+          "columnsFrom": [
+            "recommendationId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "skoots_id": {
+          "name": "skoots_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "openId": {
+          "name": "openId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "loginMethod": {
+          "name": "loginMethod",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "enum('user','admin')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'user'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
+        },
+        "lastSignedIn": {
+          "name": "lastSignedIn",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "users_id": {
+          "name": "users_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "users_openId_unique": {
+          "name": "users_openId_unique",
+          "columns": [
+            "openId"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "validation_feedback": {
+      "name": "validation_feedback",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "experimentVersion": {
+          "name": "experimentVersion",
+          "type": "enum('founder','coach','client_success')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "participantName": {
+          "name": "participantName",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "perceivedPurpose": {
+          "name": "perceivedPurpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wouldUse": {
+          "name": "wouldUse",
+          "type": "enum('definitely','maybe','no')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wouldPay": {
+          "name": "wouldPay",
+          "type": "enum('yes','maybe','no')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "suggestedMonthlyPrice": {
+          "name": "suggestedMonthlyPrice",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mostInterestingFeature": {
+          "name": "mostInterestingFeature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "confusion": {
+          "name": "confusion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "validation_feedback_user_experiment_idx": {
+          "name": "validation_feedback_user_experiment_idx",
+          "columns": [
+            "userId",
+            "experimentVersion"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "validation_feedback_userId_users_id_fk": {
+          "name": "validation_feedback_userId_users_id_fk",
+          "tableFrom": "validation_feedback",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "validation_feedback_id": {
+          "name": "validation_feedback_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    }
+  },
+  "views": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "tables": {},
+    "indexes": {}
+  }
+}

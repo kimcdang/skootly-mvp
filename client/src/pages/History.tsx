@@ -1,0 +1,12 @@
+import { useAuth } from "@/_core/hooks/useAuth";
+import { SkootlyHeader } from "@/components/SkootlyHeader";
+import { trpc } from "@/lib/trpc";
+import { CheckCircle2, Circle, Loader2, SkipForward } from "lucide-react";
+
+export default function History() {
+  const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
+  const history = trpc.skootly.history.useQuery(undefined, { enabled: Boolean(user) });
+  if (loading || history.isLoading) return <div className="full-loader"><Loader2 className="size-6 animate-spin" /> Loading momentum…</div>;
+  if (history.error) return <div className="workspace-page"><SkootlyHeader compact /><main className="history-shell"><div className="empty-history"><Circle className="size-8" /><h2>Momentum is temporarily unavailable.</h2><p>{history.error.message}</p><button className="nav-link" onClick={() => history.refetch()}>Try again</button></div></main></div>;
+  return <div className="workspace-page"><SkootlyHeader compact /><main className="history-shell"><span className="mini-label">MOMENTUM, NOT METRICS</span><h1>Your recent Skoots.</h1><p className="history-intro">A simple record of what Skootly recommended, what you did, and what happened next.</p>{!history.data?.length ? <div className="empty-history"><Circle className="size-8" /><h2>No Skoots yet.</h2><p>Your completed and unfinished focus items will appear here.</p></div> : <div className="history-list">{history.data.map(item => <article className="history-item" key={item.skoot.id}><div className={`history-icon history-icon--${item.skoot.status}`}>{item.skoot.status === "completed" ? <CheckCircle2 /> : item.skoot.status === "skipped" ? <SkipForward /> : <Circle />}</div><div><div className="history-meta"><span>{new Date(item.skoot.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span><span>{item.skoot.experimentVersion.replace("_", " ")}</span><span>{item.skoot.status}</span></div><h2>{item.skoot.title}</h2><p>{item.skoot.reasoning}</p><small><strong>Bottleneck:</strong> {item.bottleneck}</small>{item.outcome ? <div className="history-outcome"><strong>Outcome:</strong> {item.outcome.outcomeType.replaceAll("_", " ")}{item.outcome.revenueAmount ? ` · $${Number(item.outcome.revenueAmount).toLocaleString()}` : ""}{item.outcome.notes ? ` · ${item.outcome.notes}` : ""}</div> : null}</div></article>)}</div>}</main></div>;
+}

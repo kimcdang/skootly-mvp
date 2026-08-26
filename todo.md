@@ -1,0 +1,64 @@
+# Project TODO
+
+- [x] Create an original Skootly brand system with a playful wordmark, soft peach foundation, mint/lilac/yellow Memphis accents, rounded UI, bold black typography, and restrained illustration-like decorations.
+- [x] Build a responsive public landing page that explains Skootly’s focused-execution promise and routes visitors to sign in or start a daily check-in.
+- [x] Preserve secure Manus authentication and give each signed-in user a private workspace isolated by user ID.
+- [x] Create persistent database tables for daily check-ins, recommended actions, and action outcomes/completion status.
+- [x] Build a short daily check-in covering current goal, blocker, available time, energy level, metric context, and optional notes.
+- [x] Integrate the built-in LLM with structured output to create one empathetic primary action, an optional secondary action, concise rationale, a bottleneck diagnosis, and up to three “Not Today” distractions.
+- [x] Enforce the product rule of no more than one bottleneck, two active Skoots, and three “Not Today” items.
+- [x] Build a calm daily focus workspace with goal context, one primary Skoot, an optional secondary Skoot, rationale, impact, and completion/skip controls.
+- [x] Collect a lightweight outcome after completion, including outcome type, optional note, and optional revenue/result amount.
+- [x] Persist unfinished actions and display recent momentum in a simple history timeline without complex analytics.
+- [x] Add concise in-app guidance for collaborating with Aaron through a shared GitHub repository while continuing to build with Manus.
+- [x] Add concise in-app guidance for publishing through Manus hosting and connecting skootly.com with Namecheap DNS.
+- [x] Add loading, empty, success, and error states for all core authenticated flows.
+- [ ] Add Vitest coverage for recommendation validation, data isolation contracts, and core action state transitions.
+- [x] Verify TypeScript, tests, production build, dev logs, desktop layout, and mobile responsiveness.
+- [ ] Save one final project checkpoint and provide the user with publishing and collaboration next steps.
+- [x] Reframe the root route as a neutral validation landing page that links to the independent Founder, Coach, and Client Success experiments.
+- [x] Create a reusable experiment configuration layer separating positioning, onboarding questions, terminology, recommendation rules, landing content, and demo fixtures from shared infrastructure.
+- [x] Build the Founder experiment at `/founder` around revenue, cash flow, opportunities, projects, constraints, and distraction protection.
+- [x] Build the Coach experiment at `/coach` around client outcomes, milestones, methodology context, progress updates, and the right next client action.
+- [x] Build the Client Success experiment at `/client-success` around client prioritization, risk, bottlenecks, and recommended interventions.
+- [ ] Use clearly labeled fictional sample records only in the Client Success demo; do not create fake reviews, ratings, testimonials, or social proof.
+- [x] Extend the shared recommendation engine to ask exactly one high-value clarifying question when context is insufficient instead of inventing an answer.
+- [x] Extend structured outcome capture to include retained-client outcomes, measurable results, and optional user feedback.
+- [x] Create founder-only `/lab` access with experiment cards, open demo, reset demo, and copy demo URL actions.
+- [x] Add persistent validation feedback capture for interviewee name, experiment viewed, perceived purpose, use intent, payment intent, suggested monthly price, most interesting feature, confusion, and notes.
+- [x] Add lightweight validation totals per experiment for demos, definite use intent, payment intent, and average suggested price.
+- [ ] Track landing page views, onboarding starts/completions, Skoot generation/completion/skip, outcome reporting, signup starts/completions, and feedback recording with `experiment_version` on every event.
+- [x] Document the extension contract so a future Version D can be added without rewriting shared authentication, UI primitives, decision logic, or outcome tracking.
+- [x] Verify the connected GitHub account and determine whether an existing Skootly repository should be used before creating or pushing any remote repository.
+- [ ] Keep the completed Skootly source in one private shared GitHub repository suitable for inviting Aaron as a collaborator.
+- [x] Evaluate Vercel compatibility against the project’s Manus authentication, managed database, and built-in LLM dependencies before selecting the custom-domain hosting path.
+- [ ] Prepare skootly.com and www.skootly.com custom-domain records for Namecheap, preserving email or other existing DNS records.
+- [x] Require explicit confirmation before changing live DNS records or initiating an external deployment.
+- [x] Compare direct GoHighLevel Private Integration Token access with a Pipedream intermediary and choose the lighter architecture unless workflow orchestration is required.
+- [x] Define the minimum GoHighLevel data needed for Skootly recommendations, prioritizing contacts, opportunities, pipelines, tasks, conversations, and recent activity while avoiding unnecessary data collection.
+- [x] Keep the GoHighLevel Private Integration Token server-side in managed secrets and never expose it in browser code, logs, or GitHub.
+- [x] Add a testable GoHighLevel connection status and graceful fallback when the token is missing, expired, or lacks a required scope.
+- [x] Normalize selected GoHighLevel records into concise recommendation context rather than sending raw CRM payloads to the LLM.
+- [x] Add tests for GoHighLevel authorization headers, location scoping, response normalization, error handling, and isolation from client-side code.
+- [x] Locate the user-supplied Skootly mascot image, preserve its pixel-art personality, upload it as a managed static asset, and reference only the permanent hosted URL in the app.
+- [x] Build one reusable floating mascot component shared across Founder, Coach, and Client Success routes without creating a separate mascot data system.
+- [x] Keep the mascot visible across in-app navigation, draggable on desktop when practical, safely positioned on mobile, and persistent in its minimized or expanded preference.
+- [x] Add subtle idle float, thinking pulse, completion celebration, and notification enter/exit motion with reduced-motion support and no aggressive bouncing.
+- [x] Derive mascot content from the existing current goal, bottleneck, active Skoot, completion state, outcome state, and next available Skoot.
+- [x] Add a compact mascot panel that shows “Your next move,” opens the active Skoot, directs users to answer a clarification, or offers to update context when today is complete.
+- [x] Add lightweight notification state for new Skoot, reminder, completion, outcome request, milestone complete, new bottleneck, and daily ready messages with read, dismissed, and created timestamps.
+- [x] Trigger a subtle mascot celebration and “Skoot complete. What happened?” notification before opening the existing outcome capture flow.
+- [x] Respond to logged outcomes with concise context-aware mascot copy and surface the next active Skoot when one exists.
+- [x] Add one non-intrusive idle reminder after approximately 25 minutes with a cooldown, without implementing recurring background scheduling.
+- [x] Add return-visit messaging for unfinished actions, completed prior work, and newly available Skoots using local visit state plus existing workspace data.
+- [x] Add founder-only `/lab` controls to demo new-Skoot, reminder, completion, revenue, next-bottleneck, and reset mascot states.
+- [x] Verify the mascot never covers primary navigation, CTAs, Done/Skip controls, or the mobile bottom interaction area.
+- [x] Treat the currently configured Private Integration Token only as a founder test connection and remove it from the end-user connection design.
+- [x] Implement HighLevel OAuth for production multi-tenant connections so each signed-in Skootly user authorizes their own HighLevel account instead of sharing a global token.
+- [x] Persist HighLevel account/location connections by Skootly user ID with strict tenant isolation, connection status, granted scopes, token expiry, and last successful sync metadata.
+- [x] Encrypt HighLevel access and refresh tokens at rest using a server-only encryption key, never return tokens through tRPC, and redact them from errors and logs.
+- [ ] Add OAuth state/nonce validation, redirect handling, token refresh, reconnect, location selection, and disconnect/revoke behavior.
+- [x] Prevent any Skootly user from reading, refreshing, disconnecting, or using another user’s HighLevel connection.
+- [x] Update the Founder check-in to show the logged-in user’s own HighLevel connection state and selected location, with connect, refresh, and disconnect controls.
+- [x] Ensure normalized CRM snapshots and recommendation context are scoped to both the signed-in Skootly user and the selected HighLevel location.
+- [ ] Add multi-tenant tests for cross-user connection denial, OAuth state validation, token encryption/redaction, location scoping, refresh behavior, and disconnected fallback.
