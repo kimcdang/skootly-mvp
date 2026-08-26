@@ -15,7 +15,7 @@
 - [x] Add loading, empty, success, and error states for all core authenticated flows.
 - [ ] Add Vitest coverage for recommendation validation, data isolation contracts, and core action state transitions.
 - [x] Verify TypeScript, tests, production build, dev logs, desktop layout, and mobile responsiveness.
-- [ ] Save one final project checkpoint and provide the user with publishing and collaboration next steps.
+- [x] Save one final project checkpoint and provide the user with publishing and collaboration next steps.
 - [x] Reframe the root route as a neutral validation landing page that links to the independent Founder, Coach, and Client Success experiments.
 - [x] Create a reusable experiment configuration layer separating positioning, onboarding questions, terminology, recommendation rules, landing content, and demo fixtures from shared infrastructure.
 - [x] Build the Founder experiment at `/founder` around revenue, cash flow, opportunities, projects, constraints, and distraction protection.
