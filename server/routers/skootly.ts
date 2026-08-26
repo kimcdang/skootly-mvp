@@ -103,9 +103,9 @@ export const skootlyRouter = router({
   reportOutcome: protectedProcedure
     .input(skootOutcomeInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const outcomeId = await saveOutcome(ctx.user.id, input);
+      const { outcomeId, experimentVersion } = await saveOutcome(ctx.user.id, input);
       await trackEvent(ctx.user.id, {
-        experimentVersion: "shared",
+        experimentVersion,
         eventName: "outcome_reported",
       });
       return { outcomeId };

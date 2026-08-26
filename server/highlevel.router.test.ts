@@ -6,17 +6,19 @@ const {
   selectConnection,
   disconnectConnection,
   createStart,
+  getAccess,
 } = vi.hoisted(() => ({
   listConnections: vi.fn(),
   selectConnection: vi.fn(),
   disconnectConnection: vi.fn(),
   createStart: vi.fn(),
+  getAccess: vi.fn(),
 }));
 
 vi.mock("./highlevelOAuth", async () => ({
   createHighLevelOAuthStart: createStart,
   disconnectHighLevelConnection: disconnectConnection,
-  getHighLevelAccessForUser: vi.fn().mockResolvedValue(null),
+  getHighLevelAccessForUser: getAccess,
   getHighLevelOAuthConfigStatus: vi.fn().mockReturnValue({ configured: true }),
   listHighLevelConnections: listConnections,
   markHighLevelSync: vi.fn(),
@@ -55,6 +57,7 @@ describe("HighLevel router tenant boundaries", () => {
     selectConnection.mockResolvedValue(undefined);
     disconnectConnection.mockResolvedValue(undefined);
     createStart.mockResolvedValue({ installUrl: "https://marketplace.example/install" });
+    getAccess.mockResolvedValue(null);
   });
 
   it("always lists connections for the authenticated Skootly user", async () => {
@@ -75,5 +78,13 @@ describe("HighLevel router tenant boundaries", () => {
   it("binds the OAuth start state to the authenticated user", async () => {
     await appRouter.createCaller(context(77)).highLevel.start({ returnPath: "/founder" });
     expect(createStart).toHaveBeenCalledWith(77, "/founder");
+  });
+
+  it("fails safely when the signed-in user has no connected HighLevel account", async () => {
+    await expect(appRouter.createCaller(context(42)).highLevel.snapshot()).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "Connect your GoHighLevel account first.",
+    });
+    expect(getAccess).toHaveBeenCalledWith(42);
   });
 });

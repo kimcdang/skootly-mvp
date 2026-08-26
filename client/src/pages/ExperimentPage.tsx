@@ -10,7 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { EXPERIMENTS, type ExperimentVersion } from "@shared/experiments";
 import { useMascot } from "@/contexts/MascotContext";
 import { ArrowRight, Check, CheckCircle2, Clock3, Loader2, RotateCcw, Sparkles, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const timeOptions = [
@@ -43,6 +43,8 @@ export default function ExperimentPage({ version }: Props) {
   const utils = trpc.useUtils();
   const queryInput = useMemo(() => ({ experimentVersion: version }), [version]);
   const workspace = trpc.skootly.workspace.useQuery(queryInput, { enabled: Boolean(user) });
+  const track = trpc.skootly.track.useMutation();
+  const onboardingTracked = useRef(false);
   const highLevelStatus = trpc.highLevel.status.useQuery(undefined, { enabled: Boolean(user) && version === "founder" });
   const [highLevelContext, setHighLevelContext] = useState("");
   const [editing, setEditing] = useState(false);
@@ -103,6 +105,19 @@ export default function ExperimentPage({ version }: Props) {
   });
 
   useEffect(() => {
+    if (!user) return;
+    const signupKey = `skootly-signup-completed-${version}`;
+    if (!localStorage.getItem(signupKey)) {
+      localStorage.setItem(signupKey, "true");
+      track.mutate({ experimentVersion: version, eventName: "signup_completed" });
+    }
+    if (!workspace.isLoading && !workspace.data && !onboardingTracked.current) {
+      onboardingTracked.current = true;
+      track.mutate({ experimentVersion: version, eventName: "onboarding_started" });
+    }
+  }, [track, user, version, workspace.data, workspace.isLoading]);
+
+  useEffect(() => {
     mascot.setThinking(generate.isPending);
     return () => mascot.setThinking(false);
   }, [generate.isPending, mascot]);
@@ -123,7 +138,7 @@ export default function ExperimentPage({ version }: Props) {
           <span className="mini-label">{config.eyebrow}</span>
           <h1>{config.positioning}</h1>
           <p>{config.promise}</p>
-          <Button size="lg" className="skoot-button skoot-button--black" onClick={() => startLogin()}>
+          <Button size="lg" className="skoot-button skoot-button--black" onClick={async () => { await track.mutateAsync({ experimentVersion: version, eventName: "signup_started" }).catch(() => undefined); startLogin(); }}>
             Sign in to begin <ArrowRight className="size-5" />
           </Button>
           <div className="intro-steps"><span>01 Check in</span><span>02 Find the bottleneck</span><span>03 Make the move</span></div>
@@ -156,6 +171,7 @@ export default function ExperimentPage({ version }: Props) {
             </aside>
             <form className="checkin-form" onSubmit={submit}>
               <div className="form-heading"><span>About 2 minutes</span>{data ? <button type="button" onClick={() => setEditing(false)}>Cancel</button> : null}</div>
+              {config.demoContext ? <div className="fictional-demo"><div><span>FICTIONAL SAMPLE DATA</span><p>Load a clearly labeled sample account for a live demo. It does not represent a real customer or testimonial.</p></div><Button type="button" variant="outline" onClick={() => setForm({ ...form, ...config.demoContext! })}>Load sample</Button></div> : null}
               <FormField label={config.goalLabel} required><Textarea value={form.goal} onChange={e => setForm({ ...form, goal: e.target.value })} placeholder="Make the outcome concrete…" /></FormField>
               <FormField label={config.stateLabel} required><Textarea value={form.currentState} onChange={e => setForm({ ...form, currentState: e.target.value })} placeholder="What has happened recently?" /></FormField>
               <FormField label={config.blockerLabel} required><Textarea value={form.blocker} onChange={e => setForm({ ...form, blocker: e.target.value })} placeholder="Name the friction, uncertainty, or constraint…" /></FormField>

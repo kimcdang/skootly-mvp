@@ -13,7 +13,7 @@
 - [x] Add concise in-app guidance for collaborating with Aaron through a shared GitHub repository while continuing to build with Manus.
 - [x] Add concise in-app guidance for publishing through Manus hosting and connecting skootly.com with Namecheap DNS.
 - [x] Add loading, empty, success, and error states for all core authenticated flows.
-- [ ] Add Vitest coverage for recommendation validation, data isolation contracts, and core action state transitions.
+- [x] Add Vitest coverage for recommendation validation, data isolation contracts, and core action state transitions.
 - [x] Verify TypeScript, tests, production build, dev logs, desktop layout, and mobile responsiveness.
 - [x] Save one final project checkpoint and provide the user with publishing and collaboration next steps.
 - [x] Reframe the root route as a neutral validation landing page that links to the independent Founder, Coach, and Client Success experiments.
@@ -21,13 +21,13 @@
 - [x] Build the Founder experiment at `/founder` around revenue, cash flow, opportunities, projects, constraints, and distraction protection.
 - [x] Build the Coach experiment at `/coach` around client outcomes, milestones, methodology context, progress updates, and the right next client action.
 - [x] Build the Client Success experiment at `/client-success` around client prioritization, risk, bottlenecks, and recommended interventions.
-- [ ] Use clearly labeled fictional sample records only in the Client Success demo; do not create fake reviews, ratings, testimonials, or social proof.
+- [x] Use clearly labeled fictional sample records only in the Client Success demo; do not create fake reviews, ratings, testimonials, or social proof.
 - [x] Extend the shared recommendation engine to ask exactly one high-value clarifying question when context is insufficient instead of inventing an answer.
 - [x] Extend structured outcome capture to include retained-client outcomes, measurable results, and optional user feedback.
 - [x] Create founder-only `/lab` access with experiment cards, open demo, reset demo, and copy demo URL actions.
 - [x] Add persistent validation feedback capture for interviewee name, experiment viewed, perceived purpose, use intent, payment intent, suggested monthly price, most interesting feature, confusion, and notes.
 - [x] Add lightweight validation totals per experiment for demos, definite use intent, payment intent, and average suggested price.
-- [ ] Track landing page views, onboarding starts/completions, Skoot generation/completion/skip, outcome reporting, signup starts/completions, and feedback recording with `experiment_version` on every event.
+- [x] Track landing page views, onboarding starts/completions, Skoot generation/completion/skip, outcome reporting, signup starts/completions, and feedback recording with `experiment_version` on every event.
 - [x] Document the extension contract so a future Version D can be added without rewriting shared authentication, UI primitives, decision logic, or outcome tracking.
 - [x] Verify the connected GitHub account and determine whether an existing Skootly repository should be used before creating or pushing any remote repository.
 - [ ] Keep the completed Skootly source in one private shared GitHub repository suitable for inviting Aaron as a collaborator.
@@ -57,8 +57,8 @@
 - [x] Implement HighLevel OAuth for production multi-tenant connections so each signed-in Skootly user authorizes their own HighLevel account instead of sharing a global token.
 - [x] Persist HighLevel account/location connections by Skootly user ID with strict tenant isolation, connection status, granted scopes, token expiry, and last successful sync metadata.
 - [x] Encrypt HighLevel access and refresh tokens at rest using a server-only encryption key, never return tokens through tRPC, and redact them from errors and logs.
-- [ ] Add OAuth state/nonce validation, redirect handling, token refresh, reconnect, location selection, and disconnect/revoke behavior.
+- [x] Add OAuth state/nonce validation, redirect handling, token refresh, reconnect, location selection, and disconnect/revoke behavior.
 - [x] Prevent any Skootly user from reading, refreshing, disconnecting, or using another user’s HighLevel connection.
 - [x] Update the Founder check-in to show the logged-in user’s own HighLevel connection state and selected location, with connect, refresh, and disconnect controls.
 - [x] Ensure normalized CRM snapshots and recommendation context are scoped to both the signed-in Skootly user and the selected HighLevel location.
-- [ ] Add multi-tenant tests for cross-user connection denial, OAuth state validation, token encryption/redaction, location scoping, refresh behavior, and disconnected fallback.
+- [x] Add multi-tenant tests for cross-user connection denial, OAuth state validation, token encryption/redaction, location scoping, refresh behavior, and disconnected fallback.

@@ -22,7 +22,11 @@ export default function Home() {
     track.mutate({ experimentVersion: "neutral", eventName: "landing_page_view" });
   }, [track]);
 
-  const begin = () => (user ? setLocation("/founder") : startLogin());
+  const begin = async () => {
+    if (user) return setLocation("/founder");
+    await track.mutateAsync({ experimentVersion: "neutral", eventName: "signup_started" }).catch(() => undefined);
+    startLogin();
+  };
 
   return (
     <div className="landing-page">

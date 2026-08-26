@@ -1,6 +1,19 @@
 import { z } from "zod";
 import { EXPERIMENT_VERSIONS } from "./experiments";
 
+export const EXPERIMENT_EVENT_NAMES = [
+  "landing_page_view",
+  "onboarding_started",
+  "onboarding_completed",
+  "skoot_generated",
+  "skoot_completed",
+  "skoot_skipped",
+  "outcome_reported",
+  "signup_started",
+  "signup_completed",
+  "feedback_recorded",
+] as const;
+
 export const experimentVersionSchema = z.enum(EXPERIMENT_VERSIONS);
 export const availableTimeSchema = z.enum([
   "15_minutes",
@@ -82,18 +95,7 @@ export const validationFeedbackInputSchema = z.object({
 
 export const experimentEventInputSchema = z.object({
   experimentVersion: z.string().trim().min(2).max(32),
-  eventName: z.enum([
-    "landing_page_view",
-    "onboarding_started",
-    "onboarding_completed",
-    "skoot_generated",
-    "skoot_completed",
-    "skoot_skipped",
-    "outcome_reported",
-    "signup_started",
-    "signup_completed",
-    "feedback_recorded",
-  ]),
+  eventName: z.enum(EXPERIMENT_EVENT_NAMES),
   sessionId: z.string().trim().max(96).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });

@@ -11,6 +11,7 @@ import {
   encryptHighLevelToken,
   hashOAuthState,
 } from "./highlevelCrypto";
+import { highLevelHeaders } from "./highlevel";
 
 const TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token";
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
@@ -28,8 +29,34 @@ type TokenResponse = {
   userId?: string;
 };
 
+export function isHighLevelOAuthStateUsable(
+  state: { userId: number; expiresAt: number; usedAt: number | null },
+  currentUserId: number,
+  now: number,
+) {
+  return state.userId === currentUserId && state.usedAt === null && state.expiresAt >= now;
+}
+
+export function buildHighLevelRefreshBody(input: {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+  userType: "Location" | "Company";
+  redirectUri: string;
+}) {
+  return new URLSearchParams({
+    client_id: input.clientId,
+    client_secret: input.clientSecret,
+    grant_type: "refresh_token",
+    refresh_token: input.refreshToken,
+    user_type: input.userType,
+    redirect_uri: input.redirectUri,
+  });
+}
+
 function config() {
   return {
+    appId: process.env.GHL_OAUTH_APP_ID,
     clientId: process.env.GHL_OAUTH_CLIENT_ID,
     clientSecret: process.env.GHL_OAUTH_CLIENT_SECRET,
     installUrl: process.env.GHL_OAUTH_INSTALL_URL,
@@ -41,13 +68,49 @@ export function getHighLevelOAuthConfigStatus() {
   const values = config();
   return {
     configured: Boolean(
-      values.clientId && values.clientSecret && values.installUrl && values.redirectUri,
+      values.appId && values.clientId && values.clientSecret && values.installUrl && values.redirectUri,
     ),
+    hasAppId: Boolean(values.appId),
     hasClientId: Boolean(values.clientId),
     hasClientSecret: Boolean(values.clientSecret),
     hasInstallUrl: Boolean(values.installUrl),
     hasRedirectUri: Boolean(values.redirectUri),
   };
+}
+
+export function assertHighLevelConnectionOwnership(
+  connection: { id: number; userId: number } | undefined,
+  userId: number,
+  connectionId: number,
+) {
+  if (!connection || connection.id !== connectionId || connection.userId !== userId) {
+    throw new Error("HighLevel connection not found.");
+  }
+  return connection;
+}
+
+export async function uninstallHighLevelApplication(
+  input: { appId: string; locationId: string; accessToken: string },
+  fetchImpl: typeof fetch = fetch,
+) {
+  const response = await fetchImpl(
+    `https://services.leadconnectorhq.com/marketplace/app/${encodeURIComponent(input.appId)}/installations`,
+    {
+      method: "DELETE",
+      headers: highLevelHeaders(input.accessToken),
+      body: JSON.stringify({
+        locationId: input.locationId,
+        reason: "User disconnected HighLevel from Skootly",
+      }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`HighLevel could not revoke this connection (${response.status}). Try again or uninstall Skootly in HighLevel.`);
+  }
+  const result = await response.json() as { success?: boolean };
+  if (result.success !== true) {
+    throw new Error("HighLevel did not confirm the app uninstall. Try again in a moment.");
+  }
 }
 
 async function requireDb() {
@@ -128,7 +191,7 @@ export async function completeHighLevelOAuth(
       )
       .limit(1)
   )[0];
-  if (!stateRow || stateRow.usedAt || stateRow.expiresAt < now) {
+  if (!stateRow || !isHighLevelOAuthStateUsable(stateRow, currentUserId, now)) {
     throw new Error("HighLevel connection request expired or was already used.");
   }
   await db
@@ -243,11 +306,15 @@ export async function selectHighLevelConnection(userId: number, connectionId: nu
   });
 }
 
-export async function disconnectHighLevelConnection(userId: number, connectionId: number) {
+export async function disconnectHighLevelConnection(
+  userId: number,
+  connectionId: number,
+  fetchImpl: typeof fetch = fetch,
+) {
   const db = await requireDb();
   const existing = (
     await db
-      .select({ id: highLevelConnections.id, selected: highLevelConnections.selected })
+      .select()
       .from(highLevelConnections)
       .where(
         and(
@@ -257,7 +324,16 @@ export async function disconnectHighLevelConnection(userId: number, connectionId
       )
       .limit(1)
   )[0];
-  if (!existing) throw new Error("HighLevel connection not found.");
+  assertHighLevelConnectionOwnership(existing, userId, connectionId);
+  const appId = config().appId;
+  if (!appId) throw new Error("HighLevel remote disconnect is not configured.");
+  const access = await getHighLevelAccessForUser(userId, connectionId, fetchImpl);
+  if (!access) throw new Error("HighLevel connection not found.");
+  await uninstallHighLevelApplication({
+    appId,
+    locationId: existing.locationId,
+    accessToken: access.accessToken,
+  }, fetchImpl);
   await db
     .delete(highLevelConnections)
     .where(
@@ -289,13 +365,12 @@ async function refreshConnection(connection: HighLevelConnection, fetchImpl: typ
   }
   const context = tokenContext(connection.userId, connection.locationId);
   const refreshToken = decryptHighLevelToken(connection.encryptedRefreshToken, context);
-  const body = new URLSearchParams({
-    client_id: values.clientId,
-    client_secret: values.clientSecret,
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-    user_type: connection.userType,
-    redirect_uri: values.redirectUri,
+  const body = buildHighLevelRefreshBody({
+    clientId: values.clientId,
+    clientSecret: values.clientSecret,
+    refreshToken,
+    userType: connection.userType,
+    redirectUri: values.redirectUri,
   });
   const token = await exchangeToken(body, fetchImpl);
   const now = Date.now();

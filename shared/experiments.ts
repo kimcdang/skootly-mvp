@@ -15,6 +15,16 @@ export type ExperimentConfig = {
   contextPrompt: string;
   accent: "mint" | "lilac" | "yellow";
   recommendationPriorities: string[];
+  demoContext?: {
+    goal: string;
+    currentState: string;
+    blocker: string;
+    metricName: string;
+    currentValue: string;
+    targetValue: string;
+    opportunities: string;
+    constraints: string;
+  };
 };
 
 export const EXPERIMENTS: Record<ExperimentVersion, ExperimentConfig> = {
@@ -71,6 +81,16 @@ export const EXPERIMENTS: Record<ExperimentVersion, ExperimentConfig> = {
       "Prefer a specific human intervention when risk is high.",
       "Explain why this client deserves attention before lower-risk accounts.",
     ],
+    demoContext: {
+      goal: "Fictional demo: Retain Acme Co. and restore progress toward launch.",
+      currentState: "Fictional demo: Acme Co. has not completed onboarding, missed the last milestone, and has not replied for eight days.",
+      blocker: "Fictional demo: The client is unclear about the next implementation step and ownership is ambiguous.",
+      metricName: "Onboarding completion",
+      currentValue: "40%",
+      targetValue: "80%",
+      opportunities: "Fictional demo: Their operations lead previously responded quickly to short, specific requests.",
+      constraints: "Fictional demo: Renewal is in 21 days. No testimonial, rating, or customer claim is implied by this sample.",
+    },
   },
 };
 

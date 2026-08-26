@@ -261,11 +261,21 @@ export async function updateSkootStatus(
       .limit(1)
   )[0];
   if (!existing) throw new Error("Skoot not found.");
+  if (!canTransitionSkootStatus(existing.status, status)) {
+    throw new Error(`Skoot is already ${existing.status}.`);
+  }
   await db
     .update(skoots)
     .set({ status, completedAt: Date.now() })
     .where(and(eq(skoots.id, skootId), eq(skoots.userId, userId)));
   return existing;
+}
+
+export function canTransitionSkootStatus(
+  current: "active" | "completed" | "skipped",
+  next: "completed" | "skipped",
+) {
+  return current === "active" && (next === "completed" || next === "skipped");
 }
 
 export async function saveOutcome(
@@ -290,7 +300,7 @@ export async function saveOutcome(
   const db = await requireDb();
   const owned = (
     await db
-      .select({ id: skoots.id })
+      .select({ id: skoots.id, experimentVersion: skoots.experimentVersion })
       .from(skoots)
       .where(and(eq(skoots.id, input.skootId), eq(skoots.userId, userId)))
       .limit(1)
@@ -310,7 +320,7 @@ export async function saveOutcome(
       createdAt: Date.now(),
     })
     .$returningId();
-  return created.id;
+  return { outcomeId: created.id, experimentVersion: owned.experimentVersion };
 }
 
 export async function trackEvent(

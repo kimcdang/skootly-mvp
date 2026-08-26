@@ -40,6 +40,7 @@ Customer-facing CRM connections must use HighLevel OAuth, not a shared Private I
 ```text
 GHL_OAUTH_CLIENT_ID
 GHL_OAUTH_CLIENT_SECRET
+GHL_OAUTH_APP_ID
 GHL_OAUTH_INSTALL_URL
 GHL_OAUTH_REDIRECT_URI
 ```
@@ -49,6 +50,8 @@ The production redirect URI should be:
 ```text
 https://skootly.com/api/integrations/highlevel/callback
 ```
+
+Request `contacts.readonly`, `opportunities.readonly`, and `oauth.write`. The final scope enables the official Marketplace App Uninstall API so disconnecting removes Skootlyâ€™s access from that specific HighLevel location before encrypted local tokens are deleted.
 
 Skootly hashes single-use OAuth state, encrypts access and refresh tokens at rest, rotates refresh tokens, and scopes every connection operation to the authenticated Skootly user and selected HighLevel location. The detailed design is in [docs/highlevel-multitenant.md](./docs/highlevel-multitenant.md).
 
@@ -62,4 +65,3 @@ After a final checkpoint, publish from the Manus Management UI. In **Settings â†
 
 - [Experiment architecture](./docs/experiment-architecture.md)
 - [HighLevel multi-tenant design](./docs/highlevel-multitenant.md)
-
