@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MemphisShapes, SkootlyHeader } from "@/components/SkootlyHeader";
 import { LearningContextPanel } from "@/components/LearningContextPanel";
 import { SkootPromptPanel } from "@/components/SkootPromptPanel";
+import { SkootConversationPanel } from "@/components/SkootConversationPanel";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { EXPERIMENTS, type ExperimentVersion } from "@shared/experiments";
@@ -161,6 +162,7 @@ export default function ExperimentPage({ version }: Props) {
       <SkootlyHeader compact />
       <main className="workspace-shell">
         <SkootPromptPanel />
+        <SkootConversationPanel />
         {workspace.isLoading ? (
           <div className="workspace-loading"><Loader2 className="size-6 animate-spin" /><span>Finding the useful signal…</span></div>
         ) : showForm ? (

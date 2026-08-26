@@ -165,6 +165,21 @@ export const skootPromptResolveInputSchema = z.object({
   prompt: z.string().trim().min(3).max(3000),
 });
 
+export const conversationStartInputSchema = z.object({
+  consentConfirmed: z.literal(true),
+  title: z.string().trim().min(2).max(300).optional(),
+});
+
+export const conversationSendInputSchema = z.object({
+  conversationId: z.number().int().positive(),
+  content: z.string().trim().min(1).max(6000),
+});
+
+export const conversationDeleteInputSchema = z.object({
+  conversationId: z.number().int().positive(),
+  confirmPermanentDeletion: z.literal(true),
+});
+
 export const validationFeedbackInputSchema = z.object({
   experimentVersion: experimentVersionSchema,
   participantName: z.string().trim().min(1).max(200),

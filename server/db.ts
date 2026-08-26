@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   dailyCheckins,
@@ -12,6 +12,8 @@ import {
   recommendationLearningSources,
   skootPacks,
   skootPackSteps,
+  skootConversationMessages,
+  skootConversations,
   skootOutcomes,
   skoots,
   users,
@@ -797,4 +799,117 @@ export async function getSkootPacks(userId: number) {
     group: row.group,
     steps: steps.filter(step => step.packId === row.pack.id),
   }));
+}
+
+export async function createConversation(userId: number, title?: string) {
+  const db = await requireDb();
+  const now = Date.now();
+  const [created] = await db
+    .insert(skootConversations)
+    .values({
+      userId,
+      title: title?.trim().slice(0, 300) || "Private Skoot conversation",
+      consentedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .$returningId();
+  return created.id;
+}
+
+export async function getLatestConversation(userId: number) {
+  const db = await requireDb();
+  const conversation = (
+    await db
+      .select()
+      .from(skootConversations)
+      .where(
+        and(
+          eq(skootConversations.userId, userId),
+          isNull(skootConversations.deletedAt),
+          isNull(skootConversations.consentRevokedAt),
+        ),
+      )
+      .orderBy(desc(skootConversations.updatedAt))
+      .limit(1)
+  )[0];
+  if (!conversation) return null;
+  const messages = await db
+    .select()
+    .from(skootConversationMessages)
+    .where(
+      and(
+        eq(skootConversationMessages.userId, userId),
+        eq(skootConversationMessages.conversationId, conversation.id),
+      ),
+    )
+    .orderBy(skootConversationMessages.createdAt)
+    .limit(40);
+  return { conversation, messages };
+}
+
+export async function appendConversationMessage(
+  userId: number,
+  conversationId: number,
+  role: "user" | "skoot",
+  content: string,
+  citations?: Array<{ title: string; lessonUrl: string | null }>,
+) {
+  const db = await requireDb();
+  const active = (
+    await db
+      .select({ id: skootConversations.id })
+      .from(skootConversations)
+      .where(
+        and(
+          eq(skootConversations.id, conversationId),
+          eq(skootConversations.userId, userId),
+          isNull(skootConversations.deletedAt),
+          isNull(skootConversations.consentRevokedAt),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!active) throw new Error("Private conversation not found or consent has been revoked.");
+  const now = Date.now();
+  await db.transaction(async tx => {
+    await tx.insert(skootConversationMessages).values({
+      conversationId,
+      userId,
+      role,
+      content: content.slice(0, 6000),
+      citations: citations?.length ? JSON.stringify(citations) : null,
+      createdAt: now,
+    });
+    await tx
+      .update(skootConversations)
+      .set({ updatedAt: now })
+      .where(and(eq(skootConversations.id, conversationId), eq(skootConversations.userId, userId)));
+  });
+}
+
+export async function deleteConversation(userId: number, conversationId: number) {
+  const db = await requireDb();
+  const result = await db
+    .delete(skootConversations)
+    .where(and(eq(skootConversations.id, conversationId), eq(skootConversations.userId, userId)));
+  if (!result[0]?.affectedRows) throw new Error("Private conversation not found.");
+}
+
+export async function getConversationGrounding(userId: number) {
+  const db = await requireDb();
+  const activeSkoots = await db
+    .select({ title: skoots.title, reasoning: skoots.reasoning })
+    .from(skoots)
+    .where(and(eq(skoots.userId, userId), eq(skoots.status, "active")))
+    .orderBy(desc(skoots.createdAt))
+    .limit(2);
+  const learning = await getEnabledLearningContextWithSources(userId);
+  const sources = await db
+    .select({ title: learningSources.title, lessonUrl: learningSources.lessonUrl })
+    .from(learningSources)
+    .where(and(eq(learningSources.userId, userId), eq(learningSources.enabled, true)))
+    .orderBy(desc(learningSources.updatedAt))
+    .limit(5);
+  return { activeSkoots, learningContext: learning.context, sources };
 }

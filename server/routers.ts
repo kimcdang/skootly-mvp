@@ -3,6 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { highLevelRouter } from "./routers/highlevel";
+import { conversationRouter } from "./routers/conversation";
 import { labRouter } from "./routers/lab";
 import { learningRouter } from "./routers/learning";
 import { packsRouter } from "./routers/packs";
@@ -23,6 +24,7 @@ export const appRouter = router({
   highLevel: highLevelRouter,
   learning: learningRouter,
   packs: packsRouter,
+  conversation: conversationRouter,
 });
 
 export type AppRouter = typeof appRouter;

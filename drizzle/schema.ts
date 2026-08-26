@@ -465,6 +465,45 @@ export const skootPackSteps = mysqlTable(
   ],
 );
 
+/** Private text-only Skoot conversation. Ownership is always the signed-in user. */
+export const skootConversations = mysqlTable(
+  "skoot_conversations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 300 }).notNull(),
+    consentedAt: bigint("consentedAt", { mode: "number" }).notNull(),
+    consentRevokedAt: bigint("consentRevokedAt", { mode: "number" }),
+    deletedAt: bigint("deletedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [index("skoot_conversations_user_updated_idx").on(table.userId, table.updatedAt)],
+);
+
+export const skootConversationMessages = mysqlTable(
+  "skoot_conversation_messages",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    conversationId: int("conversationId")
+      .notNull()
+      .references(() => skootConversations.id, { onDelete: "cascade" }),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: mysqlEnum("role", ["user", "skoot"]).notNull(),
+    content: text("content").notNull(),
+    citations: text("citations"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [
+    index("skoot_conversation_messages_owner_idx").on(table.userId, table.conversationId),
+    index("skoot_conversation_messages_created_idx").on(table.conversationId, table.createdAt),
+  ],
+);
+
 export type HighLevelConnection = typeof highLevelConnections.$inferSelect;
 export type HighLevelOAuthState = typeof highLevelOAuthStates.$inferSelect;
 export type LearningSource = typeof learningSources.$inferSelect;
@@ -472,3 +511,5 @@ export type LearningHomeworkItem = typeof learningHomeworkItems.$inferSelect;
 export type GroupContext = typeof groupContexts.$inferSelect;
 export type SkootPack = typeof skootPacks.$inferSelect;
 export type SkootPackStep = typeof skootPackSteps.$inferSelect;
+export type SkootConversation = typeof skootConversations.$inferSelect;
+export type SkootConversationMessage = typeof skootConversationMessages.$inferSelect;

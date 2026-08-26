@@ -116,3 +116,9 @@
 - [ ] Add deterministic engagement guidance that recommends an appropriate user-authored homework completion, progress update, focused question, or discussion reply only when the imported source supports it.
 - [ ] Add Vitest coverage for learning-source cross-user isolation, deduplication, deletion/audit behavior, recommendation source attribution, graceful missing-transcript handling, and size limits.
 - [ ] Verify the generated ICO favicon at actual small browser-tab sizes after the next published release.
+- [ ] Add a client-owned conversation model with explicit consent, user ownership, private-by-default visibility, retention controls, permanent deletion, and export-ready metadata.
+- [ ] Keep the first conversation release text-only; defer voice ingestion until the user has approved a separate consent, transcription, retention, and deletion design.
+- [ ] Add a clear in-app notice explaining that Skoot summarizes only the signed-in user’s Skootly data and does not post, upload, or change external platforms.
+- [ ] Create an external-app rollout checklist with privacy policy, terms, support contact, OAuth registrations, test accounts, screenshots, and staged access requirements.
+- [ ] Record the deployment failure as an upstream base-image retrieval timeout rather than an application build error, and retain the build log evidence.
+- [ ] Retry publication only after local TypeScript, tests, and production build verification succeeds, then verify the live deployment and favicon at browser-tab size.
