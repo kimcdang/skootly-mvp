@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MemphisShapes, SkootlyHeader } from "@/components/SkootlyHeader";
+import { LearningContextPanel } from "@/components/LearningContextPanel";
+import { SkootPromptPanel } from "@/components/SkootPromptPanel";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { EXPERIMENTS, type ExperimentVersion } from "@shared/experiments";
@@ -158,6 +160,7 @@ export default function ExperimentPage({ version }: Props) {
     <div className="workspace-page">
       <SkootlyHeader compact />
       <main className="workspace-shell">
+        <SkootPromptPanel />
         {workspace.isLoading ? (
           <div className="workspace-loading"><Loader2 className="size-6 animate-spin" /><span>Finding the useful signal…</span></div>
         ) : showForm ? (
@@ -200,6 +203,7 @@ export default function ExperimentPage({ version }: Props) {
                   </div>
                 </div>
               ) : null}
+              <LearningContextPanel />
               <FormField label="Constraints or extra context"><Textarea value={form.constraints} onChange={e => setForm({ ...form, constraints: e.target.value })} placeholder="Deadlines, dependencies, decisions already made…" /></FormField>
               <Button disabled={generate.isPending} size="lg" className="skoot-button skoot-button--black w-full">
                 {generate.isPending ? <><Loader2 className="size-5 animate-spin" /> Finding your next move…</> : <>Show me what matters <ArrowRight className="size-5" /></>}
@@ -236,6 +240,8 @@ export default function ExperimentPage({ version }: Props) {
               </div>
             </div>
             <article className="not-today-card"><div><span className="card-kicker">NOT TODAY</span><p>{data.recommendation.notTodayReason}</p></div><ul>{data.recommendation.notTodayItems.map(item => <li key={item}><X className="size-4" /> {item}</li>)}</ul></article>
+            {data.learningCitations?.length ? <article className="learning-citation-card"><span className="card-kicker">COURSE CONTEXT CONSIDERED</span>{data.learningCitations.map(citation => <div key={citation.title}><strong>{citation.title}</strong>{citation.lessonUrl ? <a href={citation.lessonUrl} target="_blank" rel="noreferrer">Open authorized lesson <ArrowRight className="size-3" /></a> : null}</div>)}</article> : null}
+            <LearningContextPanel />
           </section>
         )}
       </main>

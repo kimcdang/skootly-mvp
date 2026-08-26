@@ -81,6 +81,90 @@ export const skootOutcomeInputSchema = z.object({
   userFeedback: z.string().trim().max(1000).optional(),
 });
 
+const optionalSecureUrl = z
+  .string()
+  .trim()
+  .url()
+  .max(2048)
+  .refine(value => new URL(value).protocol === "https:", "Use an HTTPS source link.")
+  .optional()
+  .or(z.literal(""));
+
+export const manualLearningSourceInputSchema = z
+  .object({
+    provider: z.enum(["skool_manual", "other_manual"]),
+    title: z.string().trim().min(2).max(300),
+    communityName: z.string().trim().max(300).optional(),
+    lessonUrl: optionalSecureUrl,
+    sourceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a YYYY-MM-DD source date.").optional(),
+    transcript: z.string().trim().max(60000).optional(),
+    homework: z.string().trim().max(15000).optional(),
+    consentConfirmed: z.literal(true),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.transcript && !value.homework) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Paste a transcript/caption, homework, or both.",
+        path: ["transcript"],
+      });
+    }
+  });
+
+export const learningSourceToggleInputSchema = z.object({
+  sourceId: z.number().int().positive(),
+  enabled: z.boolean(),
+});
+
+export const learningHomeworkStatusInputSchema = z.object({
+  homeworkId: z.number().int().positive(),
+  status: z.enum(["pending", "completed", "dismissed"]),
+});
+
+export const learningSourceDeleteInputSchema = z.object({
+  sourceId: z.number().int().positive(),
+  confirmPermanentDeletion: z.literal(true),
+});
+
+const userOwnedHttpsUrl = z
+  .string()
+  .trim()
+  .url()
+  .max(2048)
+  .refine(value => new URL(value).protocol === "https:", "Use an HTTPS URL.");
+
+export const groupContextInputSchema = z.object({
+  platform: z.enum(["skool", "other"]),
+  name: z.string().trim().min(2).max(300),
+  groupUrl: userOwnedHttpsUrl,
+  settingsUrl: userOwnedHttpsUrl.optional().or(z.literal("")),
+  settingsLabel: z.string().trim().max(160).optional(),
+});
+
+const skootPackStepInputSchema = z.object({
+  actionType: z.enum(["asset_preparation", "platform_setup", "homework", "engagement"]),
+  actionTitle: z.string().trim().min(4).max(700),
+  rationale: z.string().trim().min(4).max(1500),
+  assetDeliverable: z.string().trim().max(300).optional(),
+  assetWidth: z.number().int().positive().max(10000).optional(),
+  assetHeight: z.number().int().positive().max(10000).optional(),
+  assetFormatHints: z.array(z.string().trim().min(2).max(80)).max(8).optional(),
+  requiresConfirmation: z.boolean().default(false),
+});
+
+export const skootPackInputSchema = z.object({
+  group: groupContextInputSchema.optional(),
+  title: z.string().trim().min(3).max(300),
+  triggerPhrases: z.array(z.string().trim().min(2).max(160)).min(1).max(8),
+  goal: z.string().trim().min(4).max(2500),
+  notes: z.string().trim().max(5000).optional(),
+  steps: z.array(skootPackStepInputSchema).min(1).max(20),
+});
+
+export const skootPromptResolveInputSchema = z.object({
+  prompt: z.string().trim().min(3).max(3000),
+});
+
 export const validationFeedbackInputSchema = z.object({
   experimentVersion: experimentVersionSchema,
   participantName: z.string().trim().min(1).max(200),

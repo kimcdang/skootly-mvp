@@ -46,8 +46,9 @@
 
 .site-header { position: relative; z-index: 30; max-width: 1200px; margin: 0 auto; padding: 26px 28px; display: flex; align-items: center; justify-content: space-between; }
 .site-header--compact { max-width: none; border-bottom: 2px solid var(--ink); background: rgba(255,247,240,.88); backdrop-filter: blur(14px); position: sticky; top: 0; padding-block: 16px; }
-.brand-mark { color: var(--ink); font: 800 25px/1 "Manrope", sans-serif; letter-spacing: -.06em; text-decoration: none; text-shadow: 2px 2px 0 var(--yellow); }
-.brand-mark span { color: #7257df; }
+.brand-mark { display: inline-flex; align-items: center; flex: 0 0 auto; text-decoration: none; border-radius: 12px; }
+.brand-mark:focus-visible { outline: 3px solid #7257df; outline-offset: 4px; }
+.brand-logo { display: block; width: 245px; height: 76px; object-fit: contain; object-position: left center; }
 .header-nav { display: flex; align-items: center; gap: 14px; }
 .nav-link { border: 0; background: transparent; font-weight: 700; cursor: pointer; }
 .landing-page { overflow: hidden; background: #fff7f0; min-height: 100vh; }
@@ -147,3 +148,35 @@
 @media (prefers-reduced-motion: reduce) {
   .mascot-character, .mascot-dock--thinking .mascot-character, .mascot-dock--celebrating .mascot-character, .mascot-notice, .mascot-panel { animation: none !important; }
 }
+
+.learning-context-card { border: 2px solid var(--ink); border-radius: 20px; background: #fffdfb; padding: 20px; display: grid; gap: 16px; box-shadow: 4px 4px 0 var(--lilac); }
+.learning-context-card__intro { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; }
+.learning-context-card__icon { width: 42px; height: 42px; display: grid; place-items: center; border: 2px solid var(--ink); border-radius: 13px; background: var(--yellow); }
+.learning-context-card h3 { font: 800 20px/1.1 "Manrope"; margin: 5px 0; }
+.learning-context-card p { margin: 0; color: #5f5861; font-size: 13px; line-height: 1.5; }
+.learning-context-card__add { border: 2px solid var(--ink) !important; background: white !important; }
+.learning-context-card__empty { border: 2px dashed #c9beb7; border-radius: 14px; padding: 14px; color: #5f5861; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+.learning-context-card__empty button { border: 0; background: none; padding: 0; text-decoration: underline; font-weight: 800; cursor: pointer; }
+.learning-source-list { display: grid; gap: 10px; }
+.learning-source { border: 2px solid var(--ink); border-radius: 15px; padding: 13px; background: white; }
+.learning-source--disabled { opacity: .62; }
+.learning-source__top { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.learning-source__top strong { display: block; font-size: 14px; }
+.learning-source__top small { display: block; color: #6d646b; font-size: 11px; margin-top: 3px; }
+.learning-source__actions { display: flex; align-items: center; gap: 8px; }
+.learning-source__actions a, .source-delete, .source-toggle { border: 1.5px solid var(--ink); background: white; color: var(--ink); border-radius: 999px; min-height: 28px; padding: 4px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.source-toggle--on { background: var(--mint); }
+.source-delete { display: grid; place-items: center; color: #bb3731; padding: 5px; }
+.learning-homework-list { display: grid; gap: 7px; margin-top: 12px; }
+.learning-homework { text-align: left; border: 0; background: #f3eeeb; border-radius: 10px; padding: 8px 10px; display: flex; gap: 7px; align-items: center; cursor: pointer; font-size: 12px; font-weight: 700; }
+.learning-homework--done { color: #53645b; text-decoration: line-through; background: #e3f5e9; }
+.learning-citation-card { border: 2px solid var(--ink); border-radius: 16px; padding: 14px; background: #f7f2ff; display: grid; gap: 8px; }.learning-citation-card > div { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-size: 12px; }.learning-citation-card a, .history-citations a { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-size: 11px; font-weight: 800; text-decoration: underline; }.history-citations { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 7px; align-items: center; font-size: 11px; color: #665e64; }.history-citations span { border: 1px solid #cfc3ba; border-radius: 999px; padding: 3px 7px; }
+.learning-concepts { margin-top: 10px; border-left: 3px solid var(--lilac); padding: 4px 0 4px 9px; display: grid; gap: 4px; }.learning-concepts span { font-size: 9px; letter-spacing: .08em; font-weight: 900; color: #605969; }.learning-concepts p { font-size: 11px; line-height: 1.35; color: #514a50; }
+.learning-import-dialog { border: 3px solid var(--ink) !important; border-radius: 24px !important; max-width: 620px !important; }
+.learning-import-form { display: grid; gap: 13px; }
+.learning-import-form label { display: grid; gap: 6px; font-weight: 800; font-size: 13px; }
+.learning-import-form textarea { min-height: 115px; }
+.learning-consent { display: flex !important; align-items: start; gap: 9px !important; font-weight: 600 !important; line-height: 1.4; }
+.learning-consent input { margin-top: 3px; }
+@media (max-width: 640px) { .learning-context-card__intro { grid-template-columns: auto 1fr; } .learning-context-card__add { grid-column: 1 / -1; width: 100%; } .learning-source__top { align-items: start; } .learning-source__actions { flex-wrap: wrap; justify-content: flex-end; } }
+.skoot-prompt-panel { margin-bottom: 28px; border: 2px solid var(--ink); border-radius: 22px; background: linear-gradient(135deg, #fffbea, #ffffff 58%); padding: 20px; box-shadow: 5px 5px 0 var(--yellow); display: grid; gap: 15px; }.skoot-prompt-panel__heading { display: flex; gap: 12px; align-items: flex-start; }.skoot-prompt-panel__icon { width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; background: var(--lilac); border: 2px solid var(--ink); border-radius: 13px; }.skoot-prompt-panel h2 { font: 800 21px/1.1 "Manrope"; margin: 4px 0; }.skoot-prompt-panel p { margin: 0; color: #655d61; font-size: 13px; line-height: 1.45; }.skoot-prompt-panel__composer { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }.skoot-prompt-panel__composer textarea { min-height: 74px; resize: vertical; }.skoot-prompt-panel__empty { display: flex; align-items: center; gap: 14px; justify-content: space-between; border: 2px dashed #cabfb2; border-radius: 14px; padding: 12px; }.skoot-prompt-panel__empty p { max-width: 620px; }.skoot-prompt-panel__setup { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: fit-content; border: 0; background: none; font-size: 12px; font-weight: 800; text-decoration: underline; cursor: pointer; }.skoot-prompt-result { border: 2px solid var(--ink); border-radius: 17px; background: #fff; padding: 16px; display: grid; gap: 14px; }.skoot-prompt-result--question { background: #fff5be; }.skoot-prompt-result__top { display: flex; gap: 12px; align-items: start; justify-content: space-between; }.skoot-prompt-result h3 { font: 800 20px/1.15 "Manrope"; margin: 5px 0; max-width: 680px; }.prompt-pack-chip { flex: 0 0 auto; border: 1.5px solid var(--ink); background: var(--mint); border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 800; }.prompt-asset-spec { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border: 1.5px solid var(--ink); border-radius: 12px; background: #fff7da; font-size: 12px; }.prompt-asset-spec span { font-weight: 800; }.prompt-asset-spec small { color: #625a5e; }.prompt-destination { display: flex; gap: 14px; align-items: center; justify-content: space-between; border-top: 1.5px dashed #cfc2b8; padding-top: 12px; }.prompt-destination strong, .prompt-destination small { display: block; }.prompt-destination small { color: #675e63; font-size: 11px; max-width: 580px; margin-top: 3px; }.skoot-prompt-result footer { color: #746a70; font-size: 10px; font-weight: 700; }.pack-setup-dialog { border: 3px solid var(--ink) !important; border-radius: 24px !important; max-width: 680px !important; }.pack-setup-form { display: grid; gap: 12px; }.pack-setup-form label { display: grid; gap: 5px; font-size: 12px; font-weight: 800; }.pack-setup-form textarea { min-height: 76px; }.pack-setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }@media (max-width: 640px) { .skoot-prompt-panel__composer, .skoot-prompt-panel__empty { grid-template-columns: 1fr; display: grid; }.skoot-prompt-panel__composer button, .skoot-prompt-panel__empty button { width: 100%; }.skoot-prompt-result__top, .prompt-destination { align-items: start; flex-direction: column; }.prompt-destination button { width: 100%; }.pack-setup-grid { grid-template-columns: 1fr; } }

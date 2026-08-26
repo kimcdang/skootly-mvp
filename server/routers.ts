@@ -4,6 +4,8 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { highLevelRouter } from "./routers/highlevel";
 import { labRouter } from "./routers/lab";
+import { learningRouter } from "./routers/learning";
+import { packsRouter } from "./routers/packs";
 import { skootlyRouter } from "./routers/skootly";
 
 export const appRouter = router({
@@ -19,6 +21,8 @@ export const appRouter = router({
   skootly: skootlyRouter,
   lab: labRouter,
   highLevel: highLevelRouter,
+  learning: learningRouter,
+  packs: packsRouter,
 });
 
 export type AppRouter = typeof appRouter;

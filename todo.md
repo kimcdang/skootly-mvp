@@ -62,3 +62,57 @@
 - [x] Update the Founder check-in to show the logged-in user’s own HighLevel connection state and selected location, with connect, refresh, and disconnect controls.
 - [x] Ensure normalized CRM snapshots and recommendation context are scoped to both the signed-in Skootly user and the selected HighLevel location.
 - [x] Add multi-tenant tests for cross-user connection denial, OAuth state validation, token encryption/redaction, location scoping, refresh behavior, and disconnected fallback.
+- [x] Determine that even user-initiated Skool page scraping conflicts with Skool’s current platform policy, which explicitly prohibits scraping data and automation requests.
+- [x] Prohibit login bypass, hidden endpoint enumeration, bulk crawling, automated community-wide scraping, and collection of private member content unrelated to the user’s learning context.
+- [x] Do not build or distribute the proposed Skool-scraping Chrome extension while the platform policy prohibits scraping and automation requests.
+- [x] Retire the extension pairing design because a direct browser scraper is not a compliant integration route under the current Skool policy.
+- [x] Create tenant-isolated database tables for user-supplied learning sources, transcript or caption text, homework items, progress, source links, consent, and deletion metadata.
+- [x] Sanitize and limit captured text, strip scripts and unnecessary member information, hash source URLs for deduplication, and reject oversized or unsupported payloads.
+- [x] Add an explicit manual import form for a lesson title, community/course name, transcript or captions the user is authorized to reuse, homework/action prompts, lesson URL, and source date.
+- [x] Add Skool context ingestion and normalization that extracts lesson concepts, required homework, platform engagement opportunities, and source citations without inventing missing transcript content.
+- [x] Ground Skootly recommendations in the signed-in user’s relevant captured lessons and unfinished homework, citing the lesson title and linking back to the authorized Skool page.
+- [x] Encourage meaningful in-platform engagement such as completing homework, posting a relevant progress update, asking a focused question, or replying to an applicable discussion without manufacturing activity.
+- [x] Add user controls to review imported lessons, mark homework progress, disable Skool grounding, and permanently delete user-supplied Skool context.
+- [x] Add tests for cross-user isolation, payload sanitization and size limits, deduplication, deletion, recommendation source attribution, and graceful missing-transcript behavior.
+- [x] Do not package or submit a Chrome extension that would violate Skool’s no-scraping platform policy.
+- [x] Document the compliant alternatives: manual transcript paste, caption-file upload, owner-provided course exports, or a future official Skool API/integration if Skool grants permission.
+- [x] Define an original Skootly logo concept built around decisive forward motion, one clear next move, and the existing warm Memphis-inspired palette without copying Skoot CRM or another mascot brand.
+- [x] Create a primary horizontal Skootly logo with a playful custom wordmark and compact symbol that remains readable on soft peach, white, and dark backgrounds.
+- [x] Create a simplified favicon/app icon using only the compact Skootly symbol, with strong silhouette and no tiny text at 16–32 px.
+- [x] Prepare transparent PNG logo assets plus favicon-compatible PNG and ICO outputs, storing originals outside the project and using permanent hosted URLs for deployed web imagery.
+- [x] Integrate the favicon into the document head and replace the text-only navigation wordmark with the approved logo while preserving accessible alt text and fast rendering.
+- [x] Verify the logo on desktop and mobile navigation, the favicon at small sizes, and sufficient contrast against the current Skootly color system.
+- [x] Deliver the final logo and favicon files to the user and save an updated project checkpoint.
+- [x] Replace the generated Skootly navigation logo with the user-supplied running-S wordmark artwork as the approved primary visual identity.
+- [x] Generate a compact square favicon from the user-supplied running-S character mark while preserving its yellow S silhouette, black limbs, blue shoes, and cheerful forward-motion personality.
+- [x] Use the approved user-supplied wordmark for site logo/social metadata and the matching square mark for browser/favicon metadata, with accessible alt text and responsive display sizing.
+- [x] Verify from the available official policy and third-party listing evidence that no SkootCRM approval or transcript-capture authorization is established; retain the documented no-scraping limitation.
+- [x] Document the difference between an officially approved or partner-authorized extension and an unapproved scraper, including exact allowed hosts, data types, user actions, and engagement restrictions.
+- [x] Retain the compliant manual import alternative because no official evidence currently supports a narrow Skool capture extension.
+- [ ] If approved, constrain extension capture to a user-selected lesson or post, show a preview before sync, collect no credentials or cookies, and never automate posting, commenting, messaging, bulk crawling, or hidden API requests.
+- [x] Decline to implement any Skool extension behavior intended to bypass platform policies, access controls, or anti-scraping restrictions.
+- [ ] Require documented official permission, a published API, or written platform/creator authorization before enabling any direct Skool browser capture or automated data retrieval.
+- [x] Define Skoot as a bounded execution companion that prioritizes the current goal, bottleneck, active Skoots, outcomes, learning context, and a concise next move rather than functioning as an unrestricted generic chatbot.
+- [ ] Define explicit client consent, client ownership, coach/team visibility, retention, deletion, and export rules before storing conversation or voice-derived context.
+- [x] Research and document the current ChatGPT app/connector approval path, required OAuth/security model, review expectations, and whether an MCP server is a viable alternative for Skootly.
+- [x] Research and document the current Manus integration and MCP approval path, including which user-facing access modes are available for an external Skootly service.
+- [ ] Create tenant-isolated tables for Skoot conversations, messages, consented memory summaries, voice transcripts, and scoped client/coach access relationships.
+- [ ] Add voice ingestion only through an explicit recording or upload action, clear transcript preview, consent notice, deletion controls, and server-side transcription.
+- [ ] Build an in-app Skoot conversation surface with message history that uses the existing decision engine and cites current Skoots, outcomes, manually imported learning sources, and approved CRM context.
+- [ ] Enforce conversation guardrails end-to-end for a future chat system: no cross-client visibility, no unscoped coach access, no automatic external posting, and no action execution outside user confirmation.
+- [ ] Design an OAuth-protected external app/MCP interface with read-only context tools and explicitly confirmed write actions for creating check-ins, Skoots, outcomes, or notes.
+- [ ] Add tests for consent enforcement, coach/client isolation, voice transcript ownership, bounded conversation context, citation accuracy, external OAuth scopes, and confirmation-gated writes.
+- [ ] Create a founder rollout checklist for external app/MCP review, privacy policy, terms, support contact, test accounts, screenshots, and staged client access.
+- [x] Define a prompt-to-next-action contract that returns exactly one primary action, optional rationale, asset requirements, source grounding, and an authorized platform destination rather than a long task list.
+- [x] Let users manually provide their own community/group URL and optionally save a validated settings/about URL template; never discover, enumerate, or infer private group administration links.
+- [x] Support structured Skoot Pack imports for authorized templates such as a 5-Day Challenge, including the stated group goal, prerequisite assets, expected dimensions, homework, and ordered milestones.
+- [x] Add an action-card type for asset preparation that can specify a requested deliverable, exact dimensions such as a 1084 × 576 group cover, and a user-owned deep link to the relevant settings page.
+- [x] Require an explicit user confirmation before any external write, upload, platform navigation that reveals private settings, or automation request; default all external guidance to read-only links and instructions.
+- [x] Ensure Skoot cites the imported Skoot Pack or user-provided context that led to an action and never claims platform state it cannot verify.
+- [x] Add example and test coverage for “Run the 5-Day Challenge Skoot Pack” producing a single cover-banner action with correct dimensions and an authorized group settings link.
+- [x] Add a source-date field to manual lesson imports across the schema, database migration, protected API, and import UI.
+- [x] Normalize imported learning sources into explicit lesson concepts, homework items, engagement opportunities, and source-attribution records without fabricating missing content.
+- [x] Surface recommendation citations with an authorized source lesson link in the focus and momentum UI whenever active learning context informs a recommendation.
+- [ ] Add deterministic engagement guidance that recommends an appropriate user-authored homework completion, progress update, focused question, or discussion reply only when the imported source supports it.
+- [ ] Add Vitest coverage for learning-source cross-user isolation, deduplication, deletion/audit behavior, recommendation source attribution, graceful missing-transcript handling, and size limits.
+- [ ] Verify the generated ICO favicon at actual small browser-tab sizes after the next published release.

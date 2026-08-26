@@ -13,8 +13,10 @@ import {
   markCheckinNeedsClarification,
   saveOutcome,
   saveRecommendation,
+  saveRecommendationLearningSources,
   trackEvent,
   updateSkootStatus,
+  getEnabledLearningContextWithSources,
 } from "../db";
 import { generateRecommendation } from "../skootlyEngine";
 import { fetchHighLevelSnapshot, getHighLevelStatus } from "../highlevel";
@@ -30,6 +32,7 @@ export const skootlyRouter = router({
   history: protectedProcedure.query(({ ctx }) => getHistory(ctx.user.id)),
   generate: protectedProcedure.input(dailyCheckinInputSchema).mutation(async ({ ctx, input }) => {
     let serverHighLevelContext: string | undefined;
+    const learning = await getEnabledLearningContextWithSources(ctx.user.id);
     if (input.experimentVersion === "founder") {
       const access = await getHighLevelAccessForUser(ctx.user.id);
       try {
@@ -56,6 +59,7 @@ export const skootlyRouter = router({
     const enrichedInput = {
       ...input,
       highLevelContext: serverHighLevelContext,
+      learningContext: learning.context || undefined,
     };
     const checkinId = await createCheckin(ctx.user.id, enrichedInput);
     await trackEvent(ctx.user.id, {
@@ -71,13 +75,14 @@ export const skootlyRouter = router({
       );
       return { mode: "clarification" as const, question: recommendation.clarificationQuestion };
     }
-    await saveRecommendation(
+    const recommendationId = await saveRecommendation(
       ctx.user.id,
       checkinId,
       input.experimentVersion,
       recommendation,
       modelId,
     );
+    await saveRecommendationLearningSources(ctx.user.id, recommendationId, learning.sourceIds);
     await trackEvent(ctx.user.id, {
       experimentVersion: input.experimentVersion,
       eventName: "skoot_generated",

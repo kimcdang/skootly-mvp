@@ -22,6 +22,20 @@
       "when": 1787760236631,
       "tag": "0002_amazing_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1787772375330,
+      "tag": "0003_volatile_longshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1787773281887,
+      "tag": "0004_amazing_trauma",
+      "breakpoints": true
     }
   ]
 }

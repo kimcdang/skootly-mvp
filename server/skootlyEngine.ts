@@ -58,7 +58,7 @@ const recommendationJsonSchema = {
   additionalProperties: false,
 } as const;
 
-export function buildRecommendationPrompt(input: DailyCheckinInput): string {
+export function buildRecommendationPrompt(input: DailyCheckinInput & { learningContext?: string }): string {
   const experiment = EXPERIMENTS[input.experimentVersion];
   const context = [
     `EXPERIMENT: ${experiment.version}`,
@@ -75,6 +75,7 @@ export function buildRecommendationPrompt(input: DailyCheckinInput): string {
     input.constraints ? `CONSTRAINTS: ${input.constraints}` : "",
     input.optionalContext ? `OPTIONAL CONTEXT: ${input.optionalContext}` : "",
     input.highLevelContext ? `NORMALIZED GOHIGHLEVEL CONTEXT: ${input.highLevelContext}` : "",
+    input.learningContext ? `AUTHORIZED IMPORTED LEARNING CONTEXT: ${input.learningContext}` : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -83,7 +84,7 @@ export function buildRecommendationPrompt(input: DailyCheckinInput): string {
 }
 
 export async function generateRecommendation(
-  input: DailyCheckinInput,
+  input: DailyCheckinInput & { learningContext?: string },
 ): Promise<{ recommendation: RecommendationOutput; modelId: string }> {
   const { data: models } = await listLLMModels();
   const modelId = models.some(model => model.id === RECOMMENDATION_MODEL)
@@ -99,7 +100,7 @@ export async function generateRecommendation(
       {
         role: "system",
         content:
-          "You are Skootly, a decisive and empathetic execution operator. Choose exactly one current bottleneck. Return one required primary action and at most one optional secondary action that can realistically be completed now. Return no more than three tempting distractions under Not Today. Prefer actions closest to the desired outcome, use existing opportunities before creating complexity, and protect the user from low-leverage work. Never brainstorm a long list. If one missing fact prevents a responsible recommendation, set mode to clarification and ask exactly one high-value question. In clarification mode, use 'Awaiting your answer' as the primary title and keep all other fields concise placeholders. Do not include markdown.",
+          "You are Skootly, a decisive and empathetic execution operator. Choose exactly one current bottleneck. Return one required primary action and at most one optional secondary action that can realistically be completed now. Return no more than three tempting distractions under Not Today. Prefer actions closest to the desired outcome, use existing opportunities before creating complexity, and protect the user from low-leverage work. When authorized imported learning context is supplied, prioritize its unfinished homework or the most relevant lesson instruction only when it clearly moves the stated goal; mention the relevant lesson title in the action reasoning without inventing source details. Never treat a source as permission to access, scrape, or change an external platform. Never brainstorm a long list. If one missing fact prevents a responsible recommendation, set mode to clarification and ask exactly one high-value question. In clarification mode, use 'Awaiting your answer' as the primary title and keep all other fields concise placeholders. Do not include markdown.",
       },
       { role: "user", content: buildRecommendationPrompt(input) },
     ],

@@ -285,5 +285,190 @@ export const highLevelOAuthStates = mysqlTable(
   table => [index("highlevel_oauth_states_user_expires_idx").on(table.userId, table.expiresAt)],
 );
 
+/**
+ * User-supplied learning material. `provider` describes the stated source only;
+ * Skootly never fetches or scrapes the linked platform.
+ */
+export const learningSources = mysqlTable(
+  "learning_sources",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: mysqlEnum("provider", ["skool_manual", "other_manual"]).notNull(),
+    title: varchar("title", { length: 300 }).notNull(),
+    communityName: varchar("communityName", { length: 300 }),
+    lessonUrl: varchar("lessonUrl", { length: 2048 }),
+    sourceDate: bigint("sourceDate", { mode: "number" }),
+    transcript: text("transcript"),
+    homework: text("homework"),
+    normalizedConcepts: text("normalizedConcepts"),
+    sourceHash: varchar("sourceHash", { length: 64 }).notNull(),
+    consentedAt: bigint("consentedAt", { mode: "number" }).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [
+    uniqueIndex("learning_sources_user_hash_idx").on(table.userId, table.sourceHash),
+    index("learning_sources_user_enabled_idx").on(table.userId, table.enabled),
+  ],
+);
+
+export const learningHomeworkItems = mysqlTable(
+  "learning_homework_items",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceId: int("sourceId")
+      .notNull()
+      .references(() => learningSources.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    details: text("details"),
+    engagementType: mysqlEnum("engagementType", [
+      "complete_lesson",
+      "complete_homework",
+      "post_progress",
+      "ask_question",
+      "reply_to_discussion",
+    ]).default("complete_homework").notNull(),
+    status: mysqlEnum("status", ["pending", "completed", "dismissed"])
+      .default("pending")
+      .notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+    completedAt: bigint("completedAt", { mode: "number" }),
+  },
+  table => [
+    index("learning_homework_user_status_idx").on(table.userId, table.status),
+    index("learning_homework_source_idx").on(table.sourceId),
+  ],
+);
+
+export const recommendationLearningSources = mysqlTable(
+  "recommendation_learning_sources",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recommendationId: int("recommendationId")
+      .notNull()
+      .references(() => recommendations.id, { onDelete: "cascade" }),
+    sourceId: int("sourceId")
+      .notNull()
+      .references(() => learningSources.id, { onDelete: "cascade" }),
+    citationReason: varchar("citationReason", { length: 500 }).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [
+    uniqueIndex("recommendation_learning_source_unique_idx").on(
+      table.recommendationId,
+      table.sourceId,
+    ),
+    index("recommendation_learning_source_user_idx").on(table.userId, table.sourceId),
+  ],
+);
+
+/** Stores only an irreversible source hash after a user deletes the raw material. */
+export const learningSourceAudit = mysqlTable(
+  "learning_source_audit",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceHash: varchar("sourceHash", { length: 64 }).notNull(),
+    action: mysqlEnum("action", ["imported", "deleted"]).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [index("learning_source_audit_user_created_idx").on(table.userId, table.createdAt)],
+);
+
+/** User-provided group metadata; Skootly never discovers or enumerates these URLs. */
+export const groupContexts = mysqlTable(
+  "group_contexts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    platform: mysqlEnum("platform", ["skool", "other"]).notNull(),
+    name: varchar("name", { length: 300 }).notNull(),
+    groupUrl: varchar("groupUrl", { length: 2048 }).notNull(),
+    settingsUrl: varchar("settingsUrl", { length: 2048 }),
+    settingsLabel: varchar("settingsLabel", { length: 160 }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [
+    uniqueIndex("group_contexts_user_url_idx").on(table.userId, table.groupUrl),
+    index("group_contexts_user_idx").on(table.userId),
+  ],
+);
+
+export const skootPacks = mysqlTable(
+  "skoot_packs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    groupId: int("groupId").references(() => groupContexts.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 300 }).notNull(),
+    triggerPhrases: text("triggerPhrases").notNull(),
+    goal: text("goal").notNull(),
+    notes: text("notes"),
+    enabled: boolean("enabled").default(true).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [
+    index("skoot_packs_user_enabled_idx").on(table.userId, table.enabled),
+    index("skoot_packs_group_idx").on(table.groupId),
+  ],
+);
+
+export const skootPackSteps = mysqlTable(
+  "skoot_pack_steps",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    packId: int("packId")
+      .notNull()
+      .references(() => skootPacks.id, { onDelete: "cascade" }),
+    position: int("position").notNull(),
+    actionType: mysqlEnum("actionType", [
+      "asset_preparation",
+      "platform_setup",
+      "homework",
+      "engagement",
+    ]).notNull(),
+    actionTitle: text("actionTitle").notNull(),
+    rationale: text("rationale").notNull(),
+    assetDeliverable: varchar("assetDeliverable", { length: 300 }),
+    assetWidth: int("assetWidth"),
+    assetHeight: int("assetHeight"),
+    assetFormatHints: text("assetFormatHints"),
+    requiresConfirmation: boolean("requiresConfirmation").default(false).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [
+    uniqueIndex("skoot_pack_steps_position_idx").on(table.packId, table.position),
+    index("skoot_pack_steps_user_idx").on(table.userId, table.packId),
+  ],
+);
+
 export type HighLevelConnection = typeof highLevelConnections.$inferSelect;
 export type HighLevelOAuthState = typeof highLevelOAuthStates.$inferSelect;
+export type LearningSource = typeof learningSources.$inferSelect;
+export type LearningHomeworkItem = typeof learningHomeworkItems.$inferSelect;
+export type GroupContext = typeof groupContexts.$inferSelect;
+export type SkootPack = typeof skootPacks.$inferSelect;
+export type SkootPackStep = typeof skootPackSteps.$inferSelect;

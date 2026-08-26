@@ -7,7 +7,11 @@ import { Link, useLocation } from "wouter";
 export function BrandMark() {
   return (
     <Link href="/" className="brand-mark" aria-label="Skootly home">
-      SKOOTLY<span>.</span>
+      <img
+        className="brand-logo"
+        src="/manus-storage/skootly-running-s-logo_049dc868.png"
+        alt="Skootly — one bottleneck, one clear move"
+      />
     </Link>
   );
 }
