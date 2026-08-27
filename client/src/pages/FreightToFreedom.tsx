@@ -39,7 +39,7 @@ export default function FreightToFreedom() {
   const [outcome, setOutcome] = useState({ contactsContacted: 0, replies: 0, bookings: 0, purchases: 0, outcomeValue: 0, notes: "", learningNote: "" });
   const invalidate = async () => { await utils.actionEngine.getBusinessSnapshot.invalidate(); await utils.actionEngine.getNextActions.invalidate(); };
   const saveProfile = trpc.actionEngine.saveProfile.useMutation({ onSuccess: async () => { await invalidate(); setSetupOpen(false); toast.success("Business memory saved."); }, onError: error => toast.error(error.message) });
-  const generate = trpc.actionEngine.generateNextActions.useMutation({ onSuccess: async result => { await invalidate(); toast.success(result.reused ? "Your current three actions are still active." : "Here’s where the money is today."); }, onError: error => toast.error(error.message) });
+  const generate = trpc.actionEngine.generateNextActions.useMutation({ onSuccess: async result => { await invalidate(); toast.success(result.reused ? "Your current revenue actions are still active." : "Here’s where the money is today."); }, onError: error => toast.error(error.message) });
   const setStatus = trpc.actionEngine.setActionStatus.useMutation({ onSuccess: invalidate, onError: error => toast.error(error.message) });
   const report = trpc.actionEngine.recordActionOutcome.useMutation({ onSuccess: async () => { await invalidate(); setOutcomeActionId(null); toast.success("Result saved. Skootly will use the evidence in your next review."); }, onError: error => toast.error(error.message) });
 

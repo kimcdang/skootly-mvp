@@ -1,7 +1,7 @@
 # Project TODO
 
 - [x] Resolve the user-reported issue that accumulated guided journey, Creator Pack, Freight action-engine, private conversation, and Smart Escalation changes are not visible in the last published release.
-- [ ] Visually verify the redesigned student and creator experiences on desktop and mobile, save a new checkpoint, and confirm the live custom domain serves the updated release.
+- [x] Visually verify the redesigned student and creator experiences on desktop and mobile, save a new checkpoint, and confirm the live custom domain serves the updated release.
 
 - [x] Create an original Skootly brand system with a playful wordmark, soft peach foundation, mint/lilac/yellow Memphis accents, rounded UI, bold black typography, and restrained illustration-like decorations.
 - [x] Build a responsive public landing page that explains Skootly’s focused-execution promise and routes visitors to sign in or start a daily check-in.
@@ -34,22 +34,22 @@
 - [x] Document the extension contract so a future Version D can be added without rewriting shared authentication, UI primitives, decision logic, or outcome tracking.
 - [x] Verify the connected GitHub account and determine whether an existing Skootly repository should be used before creating or pushing any remote repository.
 - [x] Keep the completed Skootly source in one private shared GitHub repository suitable for inviting Aaron as a collaborator.
-- [ ] Refine the supplied Freight to Freedom action-engine brief into a minimal implementation specification that reuses existing Skootly actions, outcomes, HighLevel context, and visual components.
-- [ ] Create a reusable company profile for company name, primary goal, monthly revenue goal, offer, offer price, acquisition method, notes, current bottleneck, and optional default playbook.
-- [ ] Introduce a reusable business action model with company assignment, source signal, priority score, revenue opportunity, related HighLevel contacts/URLs, owner, lifecycle status, outcome, outcome value, learning note, and optional playbook origin.
-- [ ] Build deterministic signal filters and scoring for new/stale/follow-up-needed leads, webinar cohorts when explicitly identifiable, opportunities, pipeline stages, last activity, and opportunity values without mirroring the CRM database.
-- [ ] Create a server-owned `generateNextActions` service that returns and persists no more than three actions, prioritizing urgency, revenue opportunity, and conversion likelihood from compact normalized signals.
-- [ ] Preserve existing user-owned HighLevel OAuth context; treat the current private integration token only as an optional founder test path and never expose any token in browser code.
-- [ ] Add compact business memory and conversation context so Skoot can explain the top action, record a status/owner update, and log a result without replaying full CRM or chat history.
-- [ ] Extend outcome capture to store contacted, replied, booked, purchased, generated-revenue, outcome value, and learning notes as a signal-to-action-to-result record.
-- [ ] Add a default internal playbook identifier without creating a marketplace, billing, public Drops, or other playbook UI.
-- [ ] Build `/freight-to-freedom` as a focused client workspace with “Good morning. Here’s where the money is today,” one to three dominant actions, a small goal/bottleneck/recent-wins panel, and direct authorized lead links.
-- [ ] Expose clean server-side action boundaries for future `get_next_actions`, `get_action_details`, `complete_action`, `record_action_outcome`, and `get_business_snapshot` tools without building the external ChatGPT/MCP connection yet.
-- [ ] Add tests for deterministic priority order, action cap, tenant/company isolation, HighLevel signal compactness, action lifecycle transitions, and detailed outcome persistence.
-- [ ] Verify the Freight to Freedom workspace supports the five-second decision test without becoming a CRM dashboard or redesigning the current Skootly brand.
-- [ ] Reconcile Freight to Freedom’s earlier three-action brief with Skootly’s authoritative one-to-two-action product rule, preserving only an optional secondary action.
-- [ ] Enforce a maximum of two active business actions in the deterministic action engine, server query, and Freight to Freedom UI.
-- [ ] Update all Freight copy, counts, tests, and action-engine documentation from “one to three” to “one primary move and one optional supporting move.”
+- [x] Refine the supplied Freight to Freedom action-engine brief into a minimal implementation specification that reuses existing Skootly actions, outcomes, HighLevel context, and visual components.
+- [x] Create a reusable company profile for company name, primary goal, monthly revenue goal, offer, offer price, acquisition method, notes, current bottleneck, and optional default playbook.
+- [x] Introduce a reusable business action model with company assignment, source signal, priority score, revenue opportunity, related HighLevel contacts/URLs, owner, lifecycle status, outcome, outcome value, learning note, and optional playbook origin.
+- [x] Build deterministic signal filters and scoring for new/stale/follow-up-needed leads, webinar cohorts when explicitly identifiable, opportunities, pipeline stages, last activity, and opportunity values without mirroring the CRM database.
+- [x] Create a server-owned `generateNextActions` service that returns and persists no more than two actions, prioritizing urgency, revenue opportunity, and conversion likelihood from compact normalized signals.
+- [x] Preserve existing user-owned HighLevel OAuth context; treat the current private integration token only as an optional founder test path and never expose any token in browser code.
+- [x] Add compact business memory and conversation context so Skoot can explain the top action, record a status/owner update, and log a result without replaying full CRM or chat history.
+- [x] Extend outcome capture to store contacted, replied, booked, purchased, generated-revenue, outcome value, and learning notes as a signal-to-action-to-result record.
+- [x] Add a default internal playbook identifier without creating a marketplace, billing, public Drops, or other playbook UI.
+- [x] Build `/freight-to-freedom` as a focused client workspace with “Good morning. Here’s where the money is today,” one dominant action, an optional supporting action, a small goal/bottleneck/recent-wins panel, and direct authorized lead links.
+- [x] Expose clean server-side action boundaries for future `get_next_actions`, `get_action_details`, `complete_action`, `record_action_outcome`, and `get_business_snapshot` tools without building the external ChatGPT/MCP connection yet.
+- [x] Add tests for deterministic priority order, action cap, tenant/company isolation, HighLevel signal compactness, action lifecycle transitions, and detailed outcome persistence.
+- [x] Verify the Freight to Freedom workspace supports the five-second decision test without becoming a CRM dashboard or redesigning the current Skootly brand.
+- [x] Reconcile Freight to Freedom’s earlier three-action brief with Skootly’s authoritative one-to-two-action product rule, preserving only an optional secondary action.
+- [x] Enforce a maximum of two active business actions in the deterministic action engine, server query, and Freight to Freedom UI.
+- [x] Update all Freight copy, counts, tests, and action-engine documentation from “one to three” to “one primary move and one optional supporting move.”
 - [x] Evaluate Vercel compatibility against the project’s Manus authentication, managed database, and built-in LLM dependencies before selecting the custom-domain hosting path.
 - [ ] Prepare skootly.com and www.skootly.com custom-domain records for Namecheap, preserving email or other existing DNS records.
 - [x] Require explicit confirmation before changing live DNS records or initiating an external deployment.
@@ -152,29 +152,29 @@
 - [ ] Build a minimal creator-insights view that summarizes recurring student bottlenecks, repeated questions, skipped Skoot titles, and stored outcomes without advanced analytics.
 - [ ] Add tests for version immutability, latest approved version resolution, creator/student tenant isolation, pack-attribution persistence, one-to-two-action limits, and outcome linkage.
 - [ ] Explicitly exclude public Pack discovery, marketplace listing, billing, creator payouts, affiliates, royalties, multi-creator editing, complex permissions, and advanced analytics from this release.
-- [ ] Reconcile Smart Escalation with the shared Skoot engine so the routing order is Student → assigned Skoot Pack/Skoot → CSM → Main Coach, always choosing the lowest-cost capable path.
-- [ ] Add creator or CSM support profiles with only a display name, routing level, optional booking URL, and active state; do not build calendar infrastructure.
-- [ ] Add tenant-isolated escalation records that capture student, creator, recommendation/Skoot, escalation type, routing reason, assigned helper, booking URL, lifecycle status, and created/resolved timestamps.
-- [ ] Add deterministic escalation rules for persistent or explicitly human-needed bottlenecks, while leaving the ordinary one-primary-plus-one-optional Skoot flow intact when an assigned Pack can help.
-- [ ] Present students with a Book Breakdown CTA only when an active, creator-owned booking URL is available; otherwise present a private request-for-help action without inventing an external link.
+- [x] Reconcile Smart Escalation with the shared Skoot engine so the routing order is Student → assigned Skoot Pack/Skoot → CSM → Main Coach, always choosing the lowest-cost capable path.
+- [x] Add creator or CSM support profiles with only a display name, routing level, optional booking URL, and active state; do not build calendar infrastructure.
+- [x] Add tenant-isolated escalation records that capture student, creator, recommendation/Skoot, escalation type, routing reason, assigned helper, booking URL, lifecycle status, and created/resolved timestamps.
+- [x] Add deterministic escalation rules for persistent or explicitly human-needed bottlenecks, while leaving the ordinary one-primary-plus-one-optional Skoot flow intact when an assigned Pack can help.
+- [x] Present students with a Book Breakdown CTA only when an active, creator-owned booking URL is available; otherwise present a private request-for-help action without inventing an external link.
 - [ ] Add private coach/CSM notification records with short context and deep links to only their authorized escalation view; never notify unrelated users.
-- [ ] Generate a private pre-call Breakdown Brief from the student’s owned goal, state, bottleneck, beliefs, prior Skoots/outcomes, applied Pack knowledge, and recommended call focus.
-- [ ] Add coach post-call notes/transcript paste with explicit private-data notice and reviewable suggestions for a client’s next Skoots and proposed Creator Pack knowledge.
+- [x] Generate a private pre-call Breakdown Brief from the student’s owned goal, state, bottleneck, beliefs, prior Skoots/outcomes, applied Pack knowledge, and recommended call focus.
+- [x] Add coach post-call notes/transcript paste with explicit private-data notice and reviewable suggestions for a client’s next Skoots and proposed Creator Pack knowledge.
 - [ ] Require explicit creator approval, edit, or ignore before post-call learning changes any Creator Pack version.
 - [ ] Detect only simple recurring, anonymized bottleneck and skipped-action patterns among assigned students; surface a private Content Skoot recommendation without client names, recordings, screenshots, or public publishing.
 - [ ] Add an explicit separate consent field before a creator can attach identifiable client information to any future content workflow; do not build publishing or social scheduling.
 - [ ] Test routing priority, tenant isolation, booking-link allowlisting, private brief access, proposal approval, anonymized content aggregation, and no-publication boundaries.
-- [ ] Explicitly exclude calendar infrastructure, video recording, YouTube publishing, social scheduling, video editing, marketplace/payouts, complex content analytics, and automatic conversion of private material to public content.
-- [ ] Add Pack-aware first-run state detection so assigned students see the Pack destination/Point B and a minimal Point A diagnostic instead of the generic goal field.
-- [ ] Derive candidate Point A questions only from approved Pack milestones, diagnostic/decision rules, known progress, imported learning, connected CRM data, prior Skoots, and outcomes; ask one question at a time and stop when sufficient context exists.
-- [ ] Retain the generic three-step outcome → bottleneck → next Skoot flow only for users without an active assigned Creator Pack.
-- [ ] Restructure returning-student hierarchy so Destination, small milestone progress, one dominant Next Skoot, optional supporting action, Need help, and quiet Not Today content appear before chat or advanced controls.
-- [ ] Move open-ended Skoot chat, prompt composition, Pack configuration, learning import, CRM connections, and specialist setup below the first decision or behind progressive disclosure.
-- [ ] Extend Creator Pack knowledge with optional transformation/destination and ordered milestone diagnostic prompts without asking students to understand Pack internals.
-- [ ] Add a deterministic Smart Escalation route that checks Pack capability, then CSM, then Main Coach based on explicit help request, persistent action attempts, and strategy/diagnosis needs.
-- [ ] Add a private student Book Breakdown action using an active authorized support booking URL, and a safe request-for-help state when no booking URL exists.
+- [x] Explicitly exclude calendar infrastructure, video recording, YouTube publishing, social scheduling, video editing, marketplace/payouts, complex content analytics, and automatic conversion of private material to public content.
+- [x] Add Pack-aware first-run state detection so assigned students see the Pack destination/Point B and a minimal Point A diagnostic instead of the generic goal field.
+- [x] Derive candidate Point A questions only from approved Pack milestones, diagnostic/decision rules, known progress, imported learning, connected CRM data, prior Skoots, and outcomes; ask one question at a time and stop when sufficient context exists.
+- [x] Retain the generic three-step outcome → bottleneck → next Skoot flow only for users without an active assigned Creator Pack.
+- [x] Restructure returning-student hierarchy so Destination, small milestone progress, one dominant Next Skoot, optional supporting action, Need help, and quiet Not Today content appear before chat or advanced controls.
+- [x] Move open-ended Skoot chat, prompt composition, Pack configuration, learning import, CRM connections, and specialist setup below the first decision or behind progressive disclosure.
+- [x] Extend Creator Pack knowledge with optional transformation/destination and ordered milestone diagnostic prompts without asking students to understand Pack internals.
+- [x] Add a deterministic Smart Escalation route that checks Pack capability, then CSM, then Main Coach based on explicit help request, persistent action attempts, and strategy/diagnosis needs.
+- [x] Add a private student Book Breakdown action using an active authorized support booking URL, and a safe request-for-help state when no booking URL exists.
 - [ ] Add a private Creator/CSM queue with student-authorized breakdown links, pre-call briefs, post-call note capture, reviewable Pack update proposals, and suggested client follow-up Skoot text.
 - [ ] Extend private Creator intelligence with anonymous aggregation of recurring bottlenecks, questions, misconceptions, skipped Skoots, outcomes, and escalation requests.
-- [ ] Surface private Content Skoot opportunities only from aggregated patterns or a creator-reviewed breakdown, defaulting all references to anonymized language with no publishing action.
+- [x] Surface private Content Skoot opportunities only from aggregated patterns or a creator-reviewed breakdown, defaulting all references to anonymized language with no publishing action.
 - [ ] Add a separate identifiable-content-consent record requirement for any future use of names, recordings, screenshots, results, or private business information; keep it out of scope for this release.
 - [x] Produce a copy-ready Manus Agent prompt for a guided first-run UX redesign that leads with outcome, bottleneck, and one decisive Skoot before exposing advanced tools.
