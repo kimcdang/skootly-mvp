@@ -9,6 +9,7 @@ import { EscalationPanel } from "@/components/EscalationPanel";
 import { MemphisShapes, SkootlyHeader } from "@/components/SkootlyHeader";
 import { SkootConversationPanel } from "@/components/SkootConversationPanel";
 import { SkootPromptPanel } from "@/components/SkootPromptPanel";
+import { PackExecutionPanel } from "@/components/PackExecutionPanel";
 import { useMascot } from "@/contexts/MascotContext";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
@@ -36,6 +37,7 @@ export default function ExperimentPage({ version }: Props) {
   const queryInput = useMemo(() => ({ experimentVersion: version }), [version]);
   const workspace = trpc.skootly.workspace.useQuery(queryInput, { enabled: Boolean(user) });
   const journey = trpc.creatorPacks.myJourney.useQuery(undefined, { enabled: Boolean(user) });
+  const packExecution = trpc.creatorPacks.myExecution.useQuery(undefined, { enabled: Boolean(user) });
   const track = trpc.skootly.track.useMutation();
   const onboardingTracked = useRef(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -77,9 +79,9 @@ export default function ExperimentPage({ version }: Props) {
   if (workspace.error) return <div className="workspace-page"><SkootlyHeader compact /><main className="workspace-shell"><section className="clarification-card"><Sparkles className="size-8" /><span className="mini-label">WE HIT A SNAG</span><h1>Your workspace is temporarily unavailable.</h1><p>{workspace.error.message}</p><Button className="skoot-button skoot-button--black" onClick={() => workspace.refetch()}>Try again <ArrowRight className="size-4" /></Button></section></main></div>;
 
   const data = workspace.data;
-  const packFirstRun = Boolean(!data && !editing && journey.data);
+  const packFirstRun = Boolean(!data && !editing && journey.data && !packExecution.data);
   return <div className="workspace-page"><SkootlyHeader compact /><main className="workspace-shell">
-    {workspace.isLoading ? <div className="workspace-loading"><Loader2 className="size-6 animate-spin" /><span>Finding the useful signal…</span></div> : packFirstRun && journey.data ? (
+    {packExecution.data ? <PackExecutionPanel /> : workspace.isLoading ? <div className="workspace-loading"><Loader2 className="size-6 animate-spin" /><span>Finding the useful signal…</span></div> : packFirstRun && journey.data ? (
       <section className="pack-journey">
         <span className="mini-label">YOUR DESTINATION</span><h1>{journey.data.destination}</h1><p className="pack-journey__provenance">Powered by {journey.data.creatorName}’s {journey.data.packName} · Version {journey.data.versionNumber}</p>
         <div className="journey-progress"><span>Milestone {journey.data.currentMilestone} of {journey.data.milestoneCount}</span><div><i style={{ width: `${(journey.data.currentMilestone / journey.data.milestoneCount) * 100}%` }} /></div></div>

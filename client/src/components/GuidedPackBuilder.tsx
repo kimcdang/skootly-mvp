@@ -1,0 +1,76 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { trpc } from "@/lib/trpc";
+import { Check, ClipboardCopy, Link2, Loader2, Plus, RefreshCw, RotateCw, Send, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+
+type TemplateKind = "five_day_challenge" | "client_implementation";
+type Milestone = { position: number; title: string; definitionOfDone: string; defaultSkoot: string; supportingSkoot?: string; feedbackPrompt: string; resourceUrl?: string; assetSpec?: string; notToday?: string };
+type Draft = { templateKind: TemplateKind; name: string; description?: string; destination: string; audience: string; cadenceLabel: string; notToday?: string; milestones: Milestone[] };
+
+const templateCopy: Record<TemplateKind, { title: string; description: string }> = {
+  five_day_challenge: { title: "5-Day Challenge", description: "A short cohort path with a clear before, after, and daily next move." },
+  client_implementation: { title: "Client Implementation", description: "A focused coach-led path for helping clients finish one meaningful implementation." },
+};
+
+const emptyDraft: Draft = { templateKind: "five_day_challenge", name: "", description: "", destination: "", audience: "", cadenceLabel: "", notToday: "", milestones: [] };
+
+function normalizePositions(milestones: Milestone[]) { return milestones.map((milestone, index) => ({ ...milestone, position: index + 1 })); }
+
+export function GuidedPackBuilder({ packId, onPublished }: { packId?: number | null; onPublished: (packId: number) => Promise<void> | void }) {
+  const utils = trpc.useUtils();
+  const [templateKind, setTemplateKind] = useState<TemplateKind>("five_day_challenge");
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const starter = trpc.creatorPacks.starterDraft.useQuery({ templateKind });
+  const builder = trpc.creatorPacks.builder.useQuery({ packId: packId ?? 0 }, { enabled: Boolean(packId) });
+  const invites = trpc.creatorPacks.listInvites.useQuery({ packId: packId ?? 0 }, { enabled: Boolean(packId) });
+  const operating = trpc.creatorPacks.operatingView.useQuery({ packId: packId ?? 0 }, { enabled: Boolean(packId) });
+
+  useEffect(() => {
+    if (packId && builder.data?.blueprint && !draftHydrated) {
+      setDraft({ templateKind: builder.data.blueprint.templateKind, name: builder.data.pack.name, description: builder.data.pack.description || "", destination: builder.data.blueprint.destination, audience: builder.data.blueprint.audience, cadenceLabel: builder.data.blueprint.cadenceLabel, notToday: builder.data.blueprint.notToday || "", milestones: builder.data.milestones.map(item => ({ position: item.position, title: item.title, definitionOfDone: item.definitionOfDone, defaultSkoot: item.defaultSkoot, supportingSkoot: item.supportingSkoot || "", feedbackPrompt: item.feedbackPrompt, resourceUrl: item.resourceUrl || "", assetSpec: item.assetSpec || "", notToday: item.notToday || "" })) });
+      setDraftHydrated(true);
+    }
+  }, [builder.data, draftHydrated, packId]);
+
+  useEffect(() => {
+    if (starter.data && (!packId || (builder.data && !builder.data.blueprint))) { setDraft(starter.data); setDraftHydrated(true); }
+  }, [builder.data, packId, starter.data]);
+
+  const chooseTemplate = (kind: TemplateKind) => { setTemplateKind(kind); setDraftHydrated(false); setDraft(emptyDraft); };
+  const updateMilestone = (index: number, patch: Partial<Milestone>) => setDraft(current => ({ ...current, milestones: current.milestones.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }));
+  const addMilestone = () => setDraft(current => current.milestones.length >= 7 ? current : ({ ...current, milestones: [...current.milestones, { position: current.milestones.length + 1, title: "New milestone", definitionOfDone: "Describe the visible result.", defaultSkoot: "Write the smallest next action.", feedbackPrompt: "What happened when you tried it?" }] }));
+  const removeMilestone = (index: number) => setDraft(current => current.milestones.length <= 3 ? current : ({ ...current, milestones: normalizePositions(current.milestones.filter((_, itemIndex) => itemIndex !== index)) }));
+  const save = trpc.creatorPacks.createGuided.useMutation({ onSuccess: async result => { toast.success("Your Pack is approved and ready to invite students."); await onPublished(result.packId); }, onError: error => toast.error(error.message) });
+  const publish = trpc.creatorPacks.publishGuided.useMutation({ onSuccess: async result => { await Promise.all([utils.creatorPacks.list.invalidate(), utils.creatorPacks.builder.invalidate({ packId: packId ?? 0 }), utils.creatorPacks.listInvites.invalidate({ packId: packId ?? 0 })]); toast.success(`Version ${result.versionNumber} is now ready for new enrollments.`); }, onError: error => toast.error(error.message) });
+  const createInvite = trpc.creatorPacks.createInvite.useMutation({ onSuccess: async result => { const link = `${window.location.origin}/join/${result.token}`; setInviteLink(link); setInviteEmail(""); await utils.creatorPacks.listInvites.invalidate({ packId: packId ?? 0 }); toast.success("Enrollment link created. Copy it to send manually."); }, onError: error => toast.error(error.message) });
+  const revoke = trpc.creatorPacks.revokeInvite.useMutation({ onSuccess: () => { utils.creatorPacks.listInvites.invalidate({ packId: packId ?? 0 }); toast.success("Enrollment link revoked."); }, onError: error => toast.error(error.message) });
+  const rollForward = trpc.creatorPacks.rollEnrollmentForward.useMutation({ onSuccess: () => { operating.refetch(); toast.success("Student will use the newest approved Pack version from their next Skoot."); }, onError: error => toast.error(error.message) });
+  const busy = save.isPending || publish.isPending;
+  const ready = draft.name.trim() && draft.destination.trim() && draft.audience.trim() && draft.cadenceLabel.trim() && draft.milestones.length >= 3;
+  const modeLabel = packId ? (builder.data?.blueprint ? "Update your Pack path" : "Give this Pack a guided path") : "Build your Pack path";
+  const sortedInvites = useMemo(() => invites.data ?? [], [invites.data]);
+
+  return <section className="mt-5 rounded-[1.75rem] border-[3px] border-black bg-[#fff9ed] p-4 shadow-[6px_6px_0_#b9a7ff] sm:p-6">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="card-kicker">PACK BUILDER</p><h3 className="mt-1 text-2xl font-black tracking-tight">{modeLabel}</h3><p className="mt-1 max-w-2xl text-sm text-stone-600">Choose a shape, make the path sound like you, and approve it. Students receive one current move—not a course dashboard.</p></div>{packId && builder.data?.version ? <span className="rounded-full border-2 border-black bg-white px-3 py-1 text-xs font-bold">Active version {builder.data.version.versionNumber}</span> : null}</div>
+    <div className="mt-5 grid gap-3 sm:grid-cols-2">{(Object.keys(templateCopy) as TemplateKind[]).map(kind => <button type="button" key={kind} onClick={() => chooseTemplate(kind)} className={`rounded-2xl border-2 border-black p-4 text-left transition active:scale-[.98] ${templateKind === kind ? "bg-[#ffe36a] shadow-[4px_4px_0_#111]" : "bg-white hover:bg-[#f2edff]"}`}><b className="block">{templateCopy[kind].title}</b><span className="mt-1 block text-sm text-stone-600">{templateCopy[kind].description}</span></button>)}</div>
+    {!draftHydrated || starter.isLoading || builder.isLoading ? <div className="flex items-center gap-2 py-8 text-sm font-semibold"><Loader2 className="size-4 animate-spin" />Preparing your Pack canvas…</div> : <>
+      <div className="mt-6 grid gap-4 md:grid-cols-2"><Label>Pack name<Input value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} /></Label><Label>Cadence<Input value={draft.cadenceLabel} onChange={event => setDraft({ ...draft, cadenceLabel: event.target.value })} placeholder="5 days" /></Label><Label className="md:col-span-2">The outcome students are working toward<Textarea value={draft.destination} onChange={event => setDraft({ ...draft, destination: event.target.value })} placeholder="At the end, students can…" /></Label><Label>Who this Pack is for<Textarea value={draft.audience} onChange={event => setDraft({ ...draft, audience: event.target.value })} placeholder="For example: new group owners who need…" /></Label><Label>Not today<Textarea value={draft.notToday} onChange={event => setDraft({ ...draft, notToday: event.target.value })} placeholder="Keep this out of the way until the current step is complete." /></Label><Label className="md:col-span-2">Short description (optional)<Textarea value={draft.description} onChange={event => setDraft({ ...draft, description: event.target.value })} /></Label></div>
+      <div className="mt-7"><div className="flex items-end justify-between gap-3"><div><p className="card-kicker">THE PATH</p><h4 className="text-lg font-black">Three to seven milestones</h4><p className="text-sm text-stone-600">Each milestone ships one primary Skoot and an optional supporting move.</p></div><Button type="button" variant="outline" size="sm" disabled={draft.milestones.length >= 7} onClick={addMilestone}><Plus className="size-4" /> Add</Button></div><div className="mt-3 space-y-3">{draft.milestones.map((milestone, index) => <article key={`${milestone.position}-${index}`} className="rounded-2xl border-2 border-black bg-white p-4"><div className="mb-3 flex items-center justify-between"><span className="rounded-full bg-[#a9e8d3] px-2 py-1 text-xs font-black">STEP {index + 1}</span><Button type="button" size="icon" variant="ghost" disabled={draft.milestones.length <= 3} onClick={() => removeMilestone(index)} aria-label={`Remove milestone ${index + 1}`}><Trash2 className="size-4" /></Button></div><div className="grid gap-3 md:grid-cols-2"><Label>Milestone title<Input value={milestone.title} onChange={event => updateMilestone(index, { title: event.target.value })} /></Label><Label>Done looks like<Input value={milestone.definitionOfDone} onChange={event => updateMilestone(index, { definitionOfDone: event.target.value })} /></Label><Label className="md:col-span-2">Primary Skoot<Textarea value={milestone.defaultSkoot} onChange={event => updateMilestone(index, { defaultSkoot: event.target.value })} /></Label><Label className="md:col-span-2">Optional supporting Skoot<Textarea value={milestone.supportingSkoot || ""} onChange={event => updateMilestone(index, { supportingSkoot: event.target.value })} placeholder="Only add this if it truly helps the primary action." /></Label><Label>Student feedback question<Input value={milestone.feedbackPrompt} onChange={event => updateMilestone(index, { feedbackPrompt: event.target.value })} /></Label><Label>Coach-provided resource URL (optional)<Input value={milestone.resourceUrl || ""} onChange={event => updateMilestone(index, { resourceUrl: event.target.value })} placeholder="https://…" /></Label><Label>Asset instructions (optional)<Input value={milestone.assetSpec || ""} onChange={event => updateMilestone(index, { assetSpec: event.target.value })} placeholder="Cover: 1084 × 576" /></Label><Label>Not today at this step (optional)<Input value={milestone.notToday || ""} onChange={event => updateMilestone(index, { notToday: event.target.value })} /></Label></div></article>)}</div></div>
+      <div className="mt-6 flex flex-col gap-2 rounded-2xl border-2 border-black bg-[#e5dcff] p-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm"><b>Review gate:</b> student guidance changes only when you approve this exact path as a new immutable version.</p><Button disabled={!ready || busy} onClick={() => packId ? publish.mutate({ packId, draft }) : save.mutate(draft)}>{busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}{packId ? "Approve new version" : "Approve this Pack"}</Button></div>
+    </>}
+    {packId ? <div className="mt-8 border-t-2 border-dashed border-black pt-6">
+      <div><p className="card-kicker">INVITE STUDENTS</p><h4 className="text-lg font-black">Create a private enrollment link</h4><p className="text-sm text-stone-600">Skootly does not send email yet. Copy the expiring link and send it yourself to the intended student.</p></div>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row"><Input value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} type="email" placeholder="student@example.com" /><Button disabled={!inviteEmail || createInvite.isPending} onClick={() => createInvite.mutate({ packId, email: inviteEmail, expiresInDays: 7 })}>{createInvite.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Create 7-day link</Button></div>
+      {inviteLink ? <div className="mt-3 rounded-xl border-2 border-black bg-[#fff2bd] p-3"><p className="break-all text-sm font-semibold">{inviteLink}</p><Button size="sm" className="mt-2" onClick={async () => { await navigator.clipboard.writeText(inviteLink); toast.success("Enrollment link copied."); }}><ClipboardCopy className="size-3" /> Copy link</Button></div> : null}
+      {sortedInvites.length ? <div className="mt-4 space-y-2">{sortedInvites.slice(0, 6).map(invite => <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border-2 border-black bg-white px-3 py-2 text-sm" key={invite.id}><span><b>{invite.email}</b> · {invite.status} · expires {new Date(invite.expiresAt).toLocaleDateString()}</span>{invite.status === "pending" ? <Button size="sm" variant="outline" disabled={revoke.isPending} onClick={() => revoke.mutate({ inviteId: invite.id })}><Trash2 className="size-3" /> Revoke</Button> : null}</div>)}</div> : null}
+    </div> : null}
+    {packId && operating.data?.length ? <div className="mt-8 border-t-2 border-dashed border-black pt-6"><p className="card-kicker">COACH VIEW</p><h4 className="text-lg font-black">Who needs your attention?</h4><div className="mt-3 space-y-2">{operating.data.map(item => <div key={item.enrollment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-black bg-white p-3 text-sm"><div><b>{item.studentName || item.studentEmail || "Enrolled student"}</b><p className="text-stone-600">{item.enrollment.status === "completed" ? "Completed the Pack" : `Current: ${item.currentMilestoneTitle || "next milestone"}`} {item.latestFeedback?.feedbackStatus === "stuck" ? "· asked for help" : ""}</p></div>{item.enrollment.packVersionId !== builder.data?.pack.activeVersionId && item.enrollment.status === "active" ? <Button size="sm" variant="outline" disabled={rollForward.isPending} onClick={() => rollForward.mutate({ enrollmentId: item.enrollment.id })}><RotateCw className="size-3" /> Use newest version</Button> : <span className="text-xs font-bold text-stone-500">Version {item.enrollment.packVersionId === builder.data?.pack.activeVersionId ? "current" : "pinned"}</span>}</div>)}</div></div> : null}
+  </section>;
+}

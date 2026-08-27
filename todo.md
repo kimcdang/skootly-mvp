@@ -189,3 +189,13 @@
 - [x] Replace Manus-only sign-in calls with a branded Skootly email registration/login screen, responsive validation states, and a clearly secondary legacy Manus account-linking path.
 - [x] Add authentication tests for registration, duplicate email handling, invalid credentials, password hashing, session issuance, logout, repeated-attempt blocking, and authenticated existing-user password attachment.
 - [x] Apply the credential migration, run TypeScript/tests/build, visually verify desktop/mobile authentication, save checkpoint 1b8499ce, and verify the live skootly.com bundle contains the new credential routes and UI.
+- [x] Audit the recovered live Creator Pack, authentication, recommendation, outcome, and support foundations against the approved P0 coach workflow.
+- [x] Add guided Pack Builder templates for 5-Day Challenge and Client Implementation, producing editable destination, audience, 3–7 milestones, default Skoots, feedback prompts, user-provided HTTPS resource links, asset specifications, and Not-Today boundaries.
+- [x] Require explicit creator review and immutable Pack-version approval before a Pack Builder draft changes student guidance.
+- [x] Add revocable, expiring, single-use enrollment invitations tied to one Pack/version and a copyable secure enrollment link; do not send email until verification and a transactional-email integration are in place.
+- [x] Add Pack-branded student acceptance and enrollment states that let a signed-in or new email/password user join only their invited Pack version.
+- [x] Add a student Pack path with a quiet milestone rail, one current primary Skoot, at most one supporting Skoot, definition of done, and Done/Stuck/Not Today feedback.
+- [x] Add private coach visibility into enrolled students’ state, current milestone, and explicit stuck/help signals without exposing student conversations or building analytics dashboards.
+- [x] Define a deliberate Pack-version rollout policy: new enrollments receive the active version while active students remain on their enrolled version unless the creator explicitly changes their rollout.
+- [x] Apply the migration and add regression tests for opaque invite tokens, expiration behavior, authenticated ownership forwarding, Pack-version approval, action caps, and feedback ownership; database helpers enforce creator/student ownership and token/email matching.
+- [x] Run TypeScript, 79 passing tests with one optional HighLevel live-credential test skipped, production build, and desktop/mobile creator, existing student, login, and unavailable-invite state verification; save and verify the published MVP checkpoint.

@@ -696,6 +696,103 @@ export const creatorPackAttributions = mysqlTable(
   table => [index("creator_pack_attr_student_idx").on(table.studentUserId, table.createdAt), index("creator_pack_attr_creator_idx").on(table.creatorUserId, table.createdAt)],
 );
 
+/** Immutable structured Pack Builder snapshot, one record for each approved Pack version. */
+export const creatorPackBlueprints = mysqlTable(
+  "creator_pack_blueprints",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    versionId: int("versionId").notNull().references(() => creatorPackVersions.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    templateKind: mysqlEnum("templateKind", ["five_day_challenge", "client_implementation"]).notNull(),
+    destination: text("destination").notNull(),
+    audience: text("audience").notNull(),
+    cadenceLabel: varchar("cadenceLabel", { length: 300 }).notNull(),
+    notToday: text("notToday"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("pack_blueprint_version_unique").on(table.packId, table.versionId), index("pack_blueprint_creator_idx").on(table.creatorUserId, table.createdAt)],
+);
+
+/** Ordered, creator-approved execution milestones for one immutable Pack version. */
+export const creatorPackMilestones = mysqlTable(
+  "creator_pack_milestones",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    versionId: int("versionId").notNull().references(() => creatorPackVersions.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    position: int("position").notNull(),
+    title: varchar("title", { length: 300 }).notNull(),
+    definitionOfDone: text("definitionOfDone").notNull(),
+    defaultSkoot: text("defaultSkoot").notNull(),
+    supportingSkoot: text("supportingSkoot"),
+    feedbackPrompt: text("feedbackPrompt").notNull(),
+    resourceUrl: varchar("resourceUrl", { length: 2048 }),
+    assetSpec: varchar("assetSpec", { length: 1000 }),
+    notToday: text("notToday"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("pack_milestone_position_unique").on(table.packId, table.versionId, table.position), index("pack_milestone_version_idx").on(table.versionId, table.position)],
+);
+
+/** A revocable, single-use invitation. The raw enrollment token is never persisted. */
+export const creatorPackInvites = mysqlTable(
+  "creator_pack_invites",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    packVersionId: int("packVersionId").notNull().references(() => creatorPackVersions.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 320 }).notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+    status: mysqlEnum("status", ["pending", "accepted", "revoked", "expired"]).default("pending").notNull(),
+    studentUserId: int("studentUserId").references(() => users.id, { onDelete: "set null" }),
+    expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+    acceptedAt: bigint("acceptedAt", { mode: "number" }),
+    revokedAt: bigint("revokedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("pack_invite_token_unique").on(table.tokenHash), index("pack_invite_creator_idx").on(table.creatorUserId, table.status, table.createdAt), index("pack_invite_email_idx").on(table.email, table.status, table.expiresAt)],
+);
+
+/** Student acceptance pins a Pack version until the creator intentionally changes rollout behavior. */
+export const creatorPackEnrollments = mysqlTable(
+  "creator_pack_enrollments",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    packVersionId: int("packVersionId").notNull().references(() => creatorPackVersions.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    studentUserId: int("studentUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    inviteId: int("inviteId").references(() => creatorPackInvites.id, { onDelete: "set null" }),
+    status: mysqlEnum("status", ["active", "paused", "completed", "revoked"]).default("active").notNull(),
+    currentMilestonePosition: int("currentMilestonePosition").default(1).notNull(),
+    enrolledAt: bigint("enrolledAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+    completedAt: bigint("completedAt", { mode: "number" }),
+  },
+  table => [uniqueIndex("pack_enrollment_unique").on(table.packId, table.studentUserId), index("pack_enrollment_student_idx").on(table.studentUserId, table.status, table.updatedAt), index("pack_enrollment_creator_idx").on(table.creatorUserId, table.status, table.updatedAt)],
+);
+
+/** Student-owned execution signals for one milestone; coaches receive only enrolled-student progress and explicit help signals. */
+export const creatorPackExecutionFeedback = mysqlTable(
+  "creator_pack_execution_feedback",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    enrollmentId: int("enrollmentId").notNull().references(() => creatorPackEnrollments.id, { onDelete: "cascade" }),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    packVersionId: int("packVersionId").notNull().references(() => creatorPackVersions.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    studentUserId: int("studentUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    milestonePosition: int("milestonePosition").notNull(),
+    feedbackStatus: mysqlEnum("feedbackStatus", ["done", "stuck", "not_today"]).notNull(),
+    detail: text("detail"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [index("pack_feedback_student_idx").on(table.studentUserId, table.createdAt), index("pack_feedback_creator_idx").on(table.creatorUserId, table.feedbackStatus, table.createdAt)],
+);
+
 export const supportProfiles = mysqlTable(
   "support_profiles",
   {
@@ -816,6 +913,11 @@ export type CreatorSkootPack = typeof creatorSkootPacks.$inferSelect;
 export type CreatorPackVersion = typeof creatorPackVersions.$inferSelect;
 export type CreatorPackKnowledge = typeof creatorPackKnowledge.$inferSelect;
 export type CreatorPackDiagnosticAnswer = typeof creatorPackDiagnosticAnswers.$inferSelect;
+export type CreatorPackBlueprint = typeof creatorPackBlueprints.$inferSelect;
+export type CreatorPackMilestone = typeof creatorPackMilestones.$inferSelect;
+export type CreatorPackInvite = typeof creatorPackInvites.$inferSelect;
+export type CreatorPackEnrollment = typeof creatorPackEnrollments.$inferSelect;
+export type CreatorPackExecutionFeedback = typeof creatorPackExecutionFeedback.$inferSelect;
 export type SupportProfile = typeof supportProfiles.$inferSelect;
 export type SmartEscalation = typeof smartEscalations.$inferSelect;
 export type SupportNotification = typeof supportNotifications.$inferSelect;

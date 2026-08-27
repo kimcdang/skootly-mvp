@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   dailyCheckins,
@@ -9,8 +9,13 @@ import {
   contentSkoots,
   creatorPackAssignments,
   creatorPackAttributions,
+  creatorPackBlueprints,
   creatorPackDiagnosticAnswers,
+  creatorPackEnrollments,
+  creatorPackExecutionFeedback,
+  creatorPackInvites,
   creatorPackKnowledge,
+  creatorPackMilestones,
   creatorPackProposals,
   creatorPackVersions,
   creatorSkootPacks,
@@ -41,6 +46,7 @@ import type { DailyCheckinInput, RecommendationOutput } from "../shared/skootly"
 import { ENV } from "./_core/env";
 import type { GeneratedBusinessAction } from "./actionEngine";
 import { buildImmutableCreatorPackVersion, deriveNextPackDiagnosticQuestion, resolveActiveApprovedVersion, type CreatorKnowledgeType } from "./creatorPacks";
+import { createInviteToken, hashInviteToken, isInviteExpired, type PackBlueprintDraft } from "./packMvp";
 import { anonymizedContentSuggestion } from "./escalations";
 import {
   buildLearningContext,
@@ -1041,6 +1047,12 @@ export async function approveCreatorPackProposal(creatorUserId: number, input: {
     const snapshot = buildImmutableCreatorPackVersion(latest?.versionNumber ?? 0, existingKnowledge.map(item => ({ knowledgeType: item.knowledgeType, content: item.content, sourceText: item.sourceText })), { knowledgeType: input.knowledgeType || proposal.proposedType, content: input.content || proposal.proposedContent, sourceText: proposal.sourceText });
     const [version] = await tx.insert(creatorPackVersions).values({ packId: pack.id, creatorUserId, versionNumber: snapshot.versionNumber, changeSummary: snapshot.addition.content, approvedAt: now }).$returningId();
     if (snapshot.carriedKnowledge.length) await tx.insert(creatorPackKnowledge).values(snapshot.carriedKnowledge.map(item => ({ packId: pack.id, versionId: version.id, creatorUserId, ...item, createdAt: now })));
+    if (pack.activeVersionId) {
+      const existingBlueprint = (await tx.select().from(creatorPackBlueprints).where(and(eq(creatorPackBlueprints.packId, pack.id), eq(creatorPackBlueprints.versionId, pack.activeVersionId))).limit(1))[0];
+      if (existingBlueprint) await tx.insert(creatorPackBlueprints).values({ packId: pack.id, versionId: version.id, creatorUserId, templateKind: existingBlueprint.templateKind, destination: existingBlueprint.destination, audience: existingBlueprint.audience, cadenceLabel: existingBlueprint.cadenceLabel, notToday: existingBlueprint.notToday, createdAt: now });
+      const existingMilestones = await tx.select().from(creatorPackMilestones).where(and(eq(creatorPackMilestones.packId, pack.id), eq(creatorPackMilestones.versionId, pack.activeVersionId))).orderBy(creatorPackMilestones.position);
+      if (existingMilestones.length) await tx.insert(creatorPackMilestones).values(existingMilestones.map(item => ({ packId: pack.id, versionId: version.id, creatorUserId, position: item.position, title: item.title, definitionOfDone: item.definitionOfDone, defaultSkoot: item.defaultSkoot, supportingSkoot: item.supportingSkoot, feedbackPrompt: item.feedbackPrompt, resourceUrl: item.resourceUrl, assetSpec: item.assetSpec, notToday: item.notToday, createdAt: now })));
+    }
     await tx.insert(creatorPackKnowledge).values({ packId: pack.id, versionId: version.id, creatorUserId, ...snapshot.addition, createdAt: now });
     await tx.update(creatorSkootPacks).set({ activeVersionId: version.id, updatedAt: now }).where(and(eq(creatorSkootPacks.id, pack.id), eq(creatorSkootPacks.creatorUserId, creatorUserId)));
     await tx.update(creatorPackProposals).set({ status: "approved", resolvedAt: now }).where(and(eq(creatorPackProposals.id, proposal.id), eq(creatorPackProposals.creatorUserId, creatorUserId)));
@@ -1069,11 +1081,112 @@ export async function assignCreatorPackStudent(creatorUserId: number, packId: nu
   return { student: { id: student.id, email: student.email, name: student.name } };
 }
 
+function builderKnowledge(draft: PackBlueprintDraft): Array<{ knowledgeType: CreatorKnowledgeType; content: string; sourceText: string }> {
+  const items: Array<{ knowledgeType: CreatorKnowledgeType; content: string; sourceText: string }> = [{ knowledgeType: "framework", content: `Destination: ${draft.destination}`, sourceText: "pack-builder" }];
+  for (const milestone of draft.milestones) {
+    items.push({ knowledgeType: "milestone", content: `Milestone ${milestone.position}: ${milestone.title}. Done looks like: ${milestone.definitionOfDone}`, sourceText: "pack-builder" });
+    items.push({ knowledgeType: "skoot_action", content: `At ${milestone.title}: ${milestone.defaultSkoot}`, sourceText: "pack-builder" });
+    if (milestone.supportingSkoot?.trim()) items.push({ knowledgeType: "skoot_action", content: `Optional support at ${milestone.title}: ${milestone.supportingSkoot.trim()}`, sourceText: "pack-builder" });
+    if (milestone.notToday?.trim()) items.push({ knowledgeType: "not_today", content: milestone.notToday.trim(), sourceText: "pack-builder" });
+  }
+  if (draft.notToday?.trim()) items.push({ knowledgeType: "not_today", content: draft.notToday.trim(), sourceText: "pack-builder" });
+  return items;
+}
+
+async function insertBlueprintSnapshot(tx: any, creatorUserId: number, packId: number, versionId: number, draft: PackBlueprintDraft, now: number) {
+  await tx.insert(creatorPackBlueprints).values({ packId, versionId, creatorUserId, templateKind: draft.templateKind, destination: draft.destination.trim(), audience: draft.audience.trim(), cadenceLabel: draft.cadenceLabel.trim(), notToday: draft.notToday?.trim() || null, createdAt: now });
+  await tx.insert(creatorPackMilestones).values(draft.milestones.map(item => ({ packId, versionId, creatorUserId, position: item.position, title: item.title.trim(), definitionOfDone: item.definitionOfDone.trim(), defaultSkoot: item.defaultSkoot.trim(), supportingSkoot: item.supportingSkoot?.trim() || null, feedbackPrompt: item.feedbackPrompt.trim(), resourceUrl: item.resourceUrl?.trim() || null, assetSpec: item.assetSpec?.trim() || null, notToday: item.notToday?.trim() || null, createdAt: now })));
+  await tx.insert(creatorPackKnowledge).values(builderKnowledge(draft).map(item => ({ packId, versionId, creatorUserId, knowledgeType: item.knowledgeType, content: item.content, sourceText: item.sourceText, createdAt: now })));
+}
+
+export async function createGuidedCreatorPack(creatorUserId: number, draft: PackBlueprintDraft) {
+  const db = await requireDb(); const now = Date.now();
+  return db.transaction(async tx => {
+    const [pack] = await tx.insert(creatorSkootPacks).values({ creatorUserId, name: draft.name.trim(), description: draft.description?.trim() || draft.destination.trim(), createdAt: now, updatedAt: now }).$returningId();
+    const [version] = await tx.insert(creatorPackVersions).values({ packId: pack.id, creatorUserId, versionNumber: 1, changeSummary: "Approved Pack Builder draft", approvedAt: now }).$returningId();
+    await insertBlueprintSnapshot(tx, creatorUserId, pack.id, version.id, draft, now);
+    await tx.update(creatorSkootPacks).set({ activeVersionId: version.id, updatedAt: now }).where(eq(creatorSkootPacks.id, pack.id));
+    return { packId: pack.id, versionId: version.id, versionNumber: 1 };
+  });
+}
+
+export async function getCreatorPackBuilder(creatorUserId: number, packId: number) {
+  const pack = await getOwnedCreatorPack(creatorUserId, packId);
+  if (!pack.activeVersionId) return null;
+  const db = await requireDb();
+  const [version, blueprint, milestones] = await Promise.all([
+    db.select().from(creatorPackVersions).where(eq(creatorPackVersions.id, pack.activeVersionId)).limit(1),
+    db.select().from(creatorPackBlueprints).where(and(eq(creatorPackBlueprints.packId, pack.id), eq(creatorPackBlueprints.versionId, pack.activeVersionId))).limit(1),
+    db.select().from(creatorPackMilestones).where(and(eq(creatorPackMilestones.packId, pack.id), eq(creatorPackMilestones.versionId, pack.activeVersionId))).orderBy(creatorPackMilestones.position),
+  ]);
+  return { pack, version: version[0] ?? null, blueprint: blueprint[0] ?? null, milestones };
+}
+
+export async function publishGuidedCreatorPackRevision(creatorUserId: number, packId: number, draft: PackBlueprintDraft) {
+  const pack = await getOwnedCreatorPack(creatorUserId, packId); const db = await requireDb(); const now = Date.now();
+  return db.transaction(async tx => {
+    const latest = (await tx.select().from(creatorPackVersions).where(eq(creatorPackVersions.packId, pack.id)).orderBy(desc(creatorPackVersions.versionNumber)).limit(1))[0];
+    const [version] = await tx.insert(creatorPackVersions).values({ packId: pack.id, creatorUserId, versionNumber: (latest?.versionNumber ?? 0) + 1, changeSummary: "Approved Pack Builder update", approvedAt: now }).$returningId();
+    if (pack.activeVersionId) {
+      const extraKnowledge = await tx.select().from(creatorPackKnowledge).where(and(eq(creatorPackKnowledge.versionId, pack.activeVersionId), sql`${creatorPackKnowledge.sourceText} <> 'pack-builder' OR ${creatorPackKnowledge.sourceText} IS NULL`));
+      if (extraKnowledge.length) await tx.insert(creatorPackKnowledge).values(extraKnowledge.map(item => ({ packId, versionId: version.id, creatorUserId, knowledgeType: item.knowledgeType, content: item.content, sourceText: item.sourceText, createdAt: now })));
+    }
+    await insertBlueprintSnapshot(tx, creatorUserId, packId, version.id, draft, now);
+    await tx.update(creatorSkootPacks).set({ name: draft.name.trim(), description: draft.description?.trim() || draft.destination.trim(), activeVersionId: version.id, updatedAt: now }).where(and(eq(creatorSkootPacks.id, packId), eq(creatorSkootPacks.creatorUserId, creatorUserId)));
+    return { versionId: version.id, versionNumber: (latest?.versionNumber ?? 0) + 1 };
+  });
+}
+
+export async function createCreatorPackInvite(creatorUserId: number, packId: number, email: string, expiresInDays: number) {
+  const pack = await getOwnedCreatorPack(creatorUserId, packId);
+  if (!pack.activeVersionId) throw new Error("Approve a Pack version before inviting students.");
+  const db = await requireDb(); const now = Date.now(); const token = createInviteToken(); const expiresAt = now + expiresInDays * 86_400_000;
+  const [invite] = await db.insert(creatorPackInvites).values({ packId, packVersionId: pack.activeVersionId, creatorUserId, email: email.trim().toLowerCase(), tokenHash: hashInviteToken(token), expiresAt, createdAt: now }).$returningId();
+  return { inviteId: invite.id, token, expiresAt };
+}
+
+export async function getCreatorPackInvites(creatorUserId: number, packId: number) {
+  await getOwnedCreatorPack(creatorUserId, packId); const db = await requireDb(); const now = Date.now();
+  const invites = await db.select().from(creatorPackInvites).where(and(eq(creatorPackInvites.packId, packId), eq(creatorPackInvites.creatorUserId, creatorUserId))).orderBy(desc(creatorPackInvites.createdAt));
+  return invites.map(item => ({ ...item, status: item.status === "pending" && isInviteExpired(item.expiresAt, now) ? "expired" as const : item.status }));
+}
+
+export async function revokeCreatorPackInvite(creatorUserId: number, inviteId: number) {
+  const db = await requireDb(); const result = await db.update(creatorPackInvites).set({ status: "revoked", revokedAt: Date.now() }).where(and(eq(creatorPackInvites.id, inviteId), eq(creatorPackInvites.creatorUserId, creatorUserId), eq(creatorPackInvites.status, "pending")));
+  if (!result[0]?.affectedRows) throw new Error("Pending invite not found."); return { success: true };
+}
+
+export async function getCreatorPackInvitePreview(token: string) {
+  const db = await requireDb();
+  const invite = (await db.select({ packName: creatorSkootPacks.name, creatorName: users.name, destination: creatorPackBlueprints.destination, cadenceLabel: creatorPackBlueprints.cadenceLabel, email: creatorPackInvites.email, status: creatorPackInvites.status, expiresAt: creatorPackInvites.expiresAt }).from(creatorPackInvites).innerJoin(creatorSkootPacks, eq(creatorPackInvites.packId, creatorSkootPacks.id)).innerJoin(users, eq(creatorPackInvites.creatorUserId, users.id)).leftJoin(creatorPackBlueprints, and(eq(creatorPackBlueprints.packId, creatorPackInvites.packId), eq(creatorPackBlueprints.versionId, creatorPackInvites.packVersionId))).where(eq(creatorPackInvites.tokenHash, hashInviteToken(token))).limit(1))[0];
+  if (!invite || invite.status !== "pending" || isInviteExpired(invite.expiresAt)) return null;
+  return { packName: invite.packName, creatorName: invite.creatorName || "Your coach", destination: invite.destination || invite.packName, cadenceLabel: invite.cadenceLabel || "Coach-guided", expiresAt: invite.expiresAt, emailHint: invite.email.replace(/(^.).*(@.*$)/, "$1•••$2") };
+}
+
+export async function acceptCreatorPackInvite(studentUserId: number, studentEmail: string | null, token: string) {
+  if (!studentEmail) throw new Error("Add your email address before accepting a Pack invitation.");
+  const db = await requireDb(); const now = Date.now();
+  return db.transaction(async tx => {
+    const invite = (await tx.select().from(creatorPackInvites).where(eq(creatorPackInvites.tokenHash, hashInviteToken(token))).limit(1))[0];
+    if (!invite || invite.status !== "pending" || isInviteExpired(invite.expiresAt, now)) throw new Error("This enrollment link is no longer available.");
+    if (invite.email !== studentEmail.trim().toLowerCase()) throw new Error("Sign in with the email address this invitation was created for.");
+    const existing = (await tx.select().from(creatorPackEnrollments).where(and(eq(creatorPackEnrollments.packId, invite.packId), eq(creatorPackEnrollments.studentUserId, studentUserId))).limit(1))[0];
+    if (!existing) await tx.insert(creatorPackEnrollments).values({ packId: invite.packId, packVersionId: invite.packVersionId, creatorUserId: invite.creatorUserId, studentUserId, inviteId: invite.id, status: "active", currentMilestonePosition: 1, enrolledAt: now, updatedAt: now });
+    const assignment = (await tx.select().from(creatorPackAssignments).where(and(eq(creatorPackAssignments.packId, invite.packId), eq(creatorPackAssignments.studentUserId, studentUserId))).limit(1))[0];
+    if (assignment) await tx.update(creatorPackAssignments).set({ revokedAt: null, assignedAt: now }).where(eq(creatorPackAssignments.id, assignment.id));
+    else await tx.insert(creatorPackAssignments).values({ packId: invite.packId, creatorUserId: invite.creatorUserId, studentUserId, assignedAt: now });
+    await tx.update(creatorPackInvites).set({ status: "accepted", studentUserId, acceptedAt: now }).where(and(eq(creatorPackInvites.id, invite.id), eq(creatorPackInvites.status, "pending")));
+    return { packId: invite.packId, alreadyEnrolled: Boolean(existing) };
+  });
+}
+
 export async function getAssignedCreatorPackContext(studentUserId: number) {
   const db = await requireDb();
   const assignment = (await db.select({ packId: creatorPackAssignments.packId, creatorUserId: creatorPackAssignments.creatorUserId, packName: creatorSkootPacks.name, packDescription: creatorSkootPacks.description, activeVersionId: creatorSkootPacks.activeVersionId, creatorName: users.name }).from(creatorPackAssignments).innerJoin(creatorSkootPacks, eq(creatorPackAssignments.packId, creatorSkootPacks.id)).innerJoin(users, eq(creatorPackAssignments.creatorUserId, users.id)).where(and(eq(creatorPackAssignments.studentUserId, studentUserId), isNull(creatorPackAssignments.revokedAt))).limit(1))[0];
   if (!assignment?.activeVersionId) return null;
-  const version = resolveActiveApprovedVersion(assignment.activeVersionId, await db.select().from(creatorPackVersions).where(and(eq(creatorPackVersions.id, assignment.activeVersionId), eq(creatorPackVersions.packId, assignment.packId))).limit(1));
+  const enrollment = (await db.select({ packVersionId: creatorPackEnrollments.packVersionId }).from(creatorPackEnrollments).where(and(eq(creatorPackEnrollments.packId, assignment.packId), eq(creatorPackEnrollments.studentUserId, studentUserId), eq(creatorPackEnrollments.status, "active"))).limit(1))[0];
+  const versionId = enrollment?.packVersionId ?? assignment.activeVersionId;
+  const version = resolveActiveApprovedVersion(versionId, await db.select().from(creatorPackVersions).where(and(eq(creatorPackVersions.id, versionId), eq(creatorPackVersions.packId, assignment.packId))).limit(1));
   if (!version) return null;
   const knowledge = await db.select().from(creatorPackKnowledge).where(and(eq(creatorPackKnowledge.packId, assignment.packId), eq(creatorPackKnowledge.versionId, version.id), eq(creatorPackKnowledge.creatorUserId, assignment.creatorUserId))).orderBy(creatorPackKnowledge.id);
   return { ...assignment, version, knowledge };
@@ -1119,6 +1232,54 @@ export async function getRecommendationCreatorPackAttribution(studentUserId: num
       eq(creatorPackAttributions.recommendationId, recommendationId),
     ))
     .limit(1))[0] ?? null;
+}
+
+export async function getMyPackExecution(studentUserId: number) {
+  const db = await requireDb();
+  const row = (await db.select({ enrollment: creatorPackEnrollments, packName: creatorSkootPacks.name, creatorName: users.name, versionNumber: creatorPackVersions.versionNumber, blueprint: creatorPackBlueprints }).from(creatorPackEnrollments).innerJoin(creatorSkootPacks, eq(creatorPackEnrollments.packId, creatorSkootPacks.id)).innerJoin(creatorPackVersions, eq(creatorPackEnrollments.packVersionId, creatorPackVersions.id)).innerJoin(users, eq(creatorPackEnrollments.creatorUserId, users.id)).leftJoin(creatorPackBlueprints, and(eq(creatorPackBlueprints.packId, creatorPackEnrollments.packId), eq(creatorPackBlueprints.versionId, creatorPackEnrollments.packVersionId))).where(and(eq(creatorPackEnrollments.studentUserId, studentUserId), or(eq(creatorPackEnrollments.status, "active"), eq(creatorPackEnrollments.status, "completed")))).orderBy(desc(creatorPackEnrollments.updatedAt)).limit(1))[0];
+  if (!row) return null;
+  const milestones = await db.select().from(creatorPackMilestones).where(and(eq(creatorPackMilestones.packId, row.enrollment.packId), eq(creatorPackMilestones.versionId, row.enrollment.packVersionId))).orderBy(creatorPackMilestones.position);
+  const current = milestones.find(item => item.position === row.enrollment.currentMilestonePosition) ?? null;
+  return { enrollment: row.enrollment, packName: row.packName, creatorName: row.creatorName || "Your coach", versionNumber: row.versionNumber, blueprint: row.blueprint, milestones, current };
+}
+
+export async function recordMyPackExecutionFeedback(studentUserId: number, input: { feedbackStatus: "done" | "stuck" | "not_today"; detail?: string }) {
+  const state = await getMyPackExecution(studentUserId);
+  if (!state?.current) throw new Error("No active Pack milestone is ready for feedback.");
+  const db = await requireDb(); const now = Date.now();
+  await db.transaction(async tx => {
+    await tx.insert(creatorPackExecutionFeedback).values({ enrollmentId: state.enrollment.id, packId: state.enrollment.packId, packVersionId: state.enrollment.packVersionId, creatorUserId: state.enrollment.creatorUserId, studentUserId, milestonePosition: state.current!.position, feedbackStatus: input.feedbackStatus, detail: input.detail?.trim() || null, createdAt: now });
+    if (input.feedbackStatus === "done") {
+      const nextPosition = state.current!.position + 1;
+      const completed = !state.milestones.some(item => item.position === nextPosition);
+      await tx.update(creatorPackEnrollments).set({ currentMilestonePosition: nextPosition, status: completed ? "completed" : "active", completedAt: completed ? now : null, updatedAt: now }).where(and(eq(creatorPackEnrollments.id, state.enrollment.id), eq(creatorPackEnrollments.studentUserId, studentUserId)));
+    }
+  });
+  return getMyPackExecution(studentUserId);
+}
+
+export async function rollEnrollmentToActiveVersion(creatorUserId: number, enrollmentId: number) {
+  const db = await requireDb();
+  const enrollment = (await db.select().from(creatorPackEnrollments).where(and(eq(creatorPackEnrollments.id, enrollmentId), eq(creatorPackEnrollments.creatorUserId, creatorUserId))).limit(1))[0];
+  if (!enrollment) throw new Error("Enrollment not found.");
+  const pack = await getOwnedCreatorPack(creatorUserId, enrollment.packId);
+  if (!pack.activeVersionId) throw new Error("The Pack has no active version.");
+  await db.update(creatorPackEnrollments).set({ packVersionId: pack.activeVersionId, updatedAt: Date.now() }).where(and(eq(creatorPackEnrollments.id, enrollment.id), eq(creatorPackEnrollments.creatorUserId, creatorUserId)));
+  return { success: true, versionId: pack.activeVersionId };
+}
+
+export async function getCreatorPackOperatingView(creatorUserId: number, packId: number) {
+  await getOwnedCreatorPack(creatorUserId, packId); const db = await requireDb();
+  const enrollments = await db.select({ enrollment: creatorPackEnrollments, studentName: users.name, studentEmail: users.email }).from(creatorPackEnrollments).innerJoin(users, eq(creatorPackEnrollments.studentUserId, users.id)).where(and(eq(creatorPackEnrollments.packId, packId), eq(creatorPackEnrollments.creatorUserId, creatorUserId))).orderBy(desc(creatorPackEnrollments.updatedAt));
+  const result = [] as Array<{ enrollment: typeof creatorPackEnrollments.$inferSelect; studentName: string | null; studentEmail: string | null; currentMilestoneTitle: string | null; latestFeedback: typeof creatorPackExecutionFeedback.$inferSelect | null }>;
+  for (const item of enrollments) {
+    const [milestone, feedback] = await Promise.all([
+      db.select({ title: creatorPackMilestones.title }).from(creatorPackMilestones).where(and(eq(creatorPackMilestones.packId, item.enrollment.packId), eq(creatorPackMilestones.versionId, item.enrollment.packVersionId), eq(creatorPackMilestones.position, item.enrollment.currentMilestonePosition))).limit(1),
+      db.select().from(creatorPackExecutionFeedback).where(and(eq(creatorPackExecutionFeedback.enrollmentId, item.enrollment.id), eq(creatorPackExecutionFeedback.studentUserId, item.enrollment.studentUserId))).orderBy(desc(creatorPackExecutionFeedback.createdAt)).limit(1),
+    ]);
+    result.push({ ...item, currentMilestoneTitle: milestone[0]?.title ?? null, latestFeedback: feedback[0] ?? null });
+  }
+  return result;
 }
 
 export async function getMyPackJourney(studentUserId: number) {
