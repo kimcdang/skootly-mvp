@@ -37,6 +37,22 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+export const userCredentials = mysqlTable(
+  "user_credentials",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 320 }).notNull(),
+    passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("user_credentials_user_id_uq").on(table.userId),
+    uniqueIndex("user_credentials_email_uq").on(table.email),
+  ],
+);
+
 export const dailyCheckins = mysqlTable(
   "daily_checkins",
   {

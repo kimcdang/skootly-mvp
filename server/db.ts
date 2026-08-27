@@ -32,6 +32,7 @@ import {
   smartEscalations,
   supportNotifications,
   supportProfiles,
+  userCredentials,
   users,
   validationFeedback,
 } from "../drizzle/schema";
@@ -106,6 +107,49 @@ export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
   return (await db.select().from(users).where(eq(users.openId, openId)).limit(1))[0];
+}
+
+export async function getCredentialByEmail(email: string) {
+  const db = await requireDb();
+  return (await db.select({ credential: userCredentials, user: users }).from(userCredentials).innerJoin(users, eq(userCredentials.userId, users.id)).where(eq(userCredentials.email, email)).limit(1))[0] ?? null;
+}
+
+export async function getCredentialForUser(userId: number) {
+  const db = await requireDb();
+  return (await db.select().from(userCredentials).where(eq(userCredentials.userId, userId)).limit(1))[0] ?? null;
+}
+
+export async function createCredentialUser(input: { openId: string; name: string; email: string; passwordHash: string }) {
+  const db = await requireDb();
+  return db.transaction(async tx => {
+    const [existingCredential, existingUser] = await Promise.all([
+      tx.select({ id: userCredentials.id }).from(userCredentials).where(eq(userCredentials.email, input.email)).limit(1),
+      tx.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1),
+    ]);
+    if (existingCredential[0] || existingUser[0]) throw new Error("EMAIL_IN_USE");
+    const [created] = await tx.insert(users).values({ openId: input.openId, name: input.name, email: input.email, loginMethod: "password", role: "user", lastSignedIn: new Date() }).$returningId();
+    await tx.insert(userCredentials).values({ userId: created.id, email: input.email, passwordHash: input.passwordHash });
+    return (await tx.select().from(users).where(eq(users.id, created.id)).limit(1))[0];
+  });
+}
+
+export async function setUserPasswordCredential(userId: number, email: string, passwordHash: string) {
+  const db = await requireDb();
+  const [credentialOwners, userOwners] = await Promise.all([
+    db.select({ userId: userCredentials.userId }).from(userCredentials).where(eq(userCredentials.email, email)).limit(1),
+    db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1),
+  ]);
+  if ((credentialOwners[0] && credentialOwners[0].userId !== userId) || (userOwners[0] && userOwners[0].id !== userId)) throw new Error("EMAIL_IN_USE");
+  const existing = (await db.select({ id: userCredentials.id }).from(userCredentials).where(eq(userCredentials.userId, userId)).limit(1))[0];
+  if (existing) await db.update(userCredentials).set({ email, passwordHash }).where(and(eq(userCredentials.id, existing.id), eq(userCredentials.userId, userId)));
+  else await db.insert(userCredentials).values({ userId, email, passwordHash });
+  await db.update(users).set({ email }).where(eq(users.id, userId));
+  return { success: true };
+}
+
+export async function touchUserSignIn(userId: number) {
+  const db = await requireDb();
+  await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, userId));
 }
 
 export async function createCheckin(userId: number, input: DailyCheckinInput) {
@@ -1016,6 +1060,7 @@ export async function assignCreatorPackStudent(creatorUserId: number, packId: nu
   const db = await requireDb();
   const student = (await db.select().from(users).where(eq(users.email, studentEmail.trim().toLowerCase())).limit(1))[0];
   if (!student) throw new Error("No Skootly user with that email exists yet.");
+  if (student.loginMethod === "password") throw new Error("This email-password account must verify its email before it can receive a Creator Pack assignment.");
   if (student.id === creatorUserId) throw new Error("Assign this pack to a student, not yourself.");
   const now = Date.now();
   const existing = (await db.select().from(creatorPackAssignments).where(and(eq(creatorPackAssignments.packId, packId), eq(creatorPackAssignments.studentUserId, student.id))).limit(1))[0];
@@ -1279,6 +1324,8 @@ export async function saveSupportProfile(creatorUserId: number, input: { id?: nu
   if (input.assigneeEmail?.trim()) {
     const assignee = (await db.select({ id: users.id }).from(users).where(eq(users.email, input.assigneeEmail.trim().toLowerCase())).limit(1))[0];
     if (!assignee) throw new Error("That support person needs a Skootly account before they can receive private breakdowns.");
+    const verifiedAssignee = (await db.select({ id: users.id, loginMethod: users.loginMethod }).from(users).where(eq(users.id, assignee.id)).limit(1))[0];
+    if (verifiedAssignee?.loginMethod === "password") throw new Error("That support person's email must be verified before private breakdowns can be assigned.");
     userId = assignee.id;
   }
   if (input.id) {

@@ -178,3 +178,14 @@
 - [x] Surface private Content Skoot opportunities only from aggregated patterns or a creator-reviewed breakdown, defaulting all references to anonymized language with no publishing action.
 - [x] Add a separate identifiable-content-consent record requirement for any future use of names, recordings, screenshots, results, or private business information; keep publishing and identifiable-content workflows out of scope for this release.
 - [x] Produce a copy-ready Manus Agent prompt for a guided first-run UX redesign that leads with outcome, bottleneck, and one decisive Skoot before exposing advanced tools.
+- [x] Diagnose the reported GoDaddy redirect: authoritative Namecheap DNS and independent public resolvers currently point the apex and www hosts to cname.manus.space; the screenshot shows Chrome already on a separate forsale.godaddy.com URL.
+- [x] Confirm there is no current registrar DNS or forwarding conflict to remove and leave all existing email MX/TXT records unchanged.
+- [x] Verify skootly.com and www.skootly.com independently resolve to the current Skootly release over HTTPS with valid IPv4 and IPv6 answers.
+- [ ] Confirm the corrected direct URL in the user's Chrome session after bypassing its cached GoDaddy history/autocomplete entry.
+- [x] Audit the current Manus authentication, session cookie, user schema, and existing-user compatibility requirements before introducing credentials.
+- [x] Add a secure isolated password-credential schema and additive migration without exposing hashes or breaking existing tenant-owned records.
+- [x] Implement email registration and login procedures with normalized email, 12-character password validation, bounded errors, repeated-attempt blocking, scrypt hashing, and existing signed session-cookie issuance.
+- [x] Preserve logout and user-ID tenant isolation while providing an Account flow for existing Manus-authenticated users to add or change a Skootly password.
+- [x] Replace Manus-only sign-in calls with a branded Skootly email registration/login screen, responsive validation states, and a clearly secondary legacy Manus account-linking path.
+- [x] Add authentication tests for registration, duplicate email handling, invalid credentials, password hashing, session issuance, logout, repeated-attempt blocking, and authenticated existing-user password attachment.
+- [ ] Apply the credential migration, run TypeScript/tests/build, visually verify desktop/mobile authentication, save a checkpoint, and verify the live release.

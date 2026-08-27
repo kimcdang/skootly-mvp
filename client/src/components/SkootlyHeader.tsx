@@ -1,7 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { startLogin } from "@/const";
-import { ArrowUpRight, LogOut } from "lucide-react";
+import { ArrowUpRight, LogOut, UserRound } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 export function BrandMark() {
@@ -32,6 +32,7 @@ export function SkootlyHeader({ compact = false }: { compact?: boolean }) {
             {user.role === "admin" ? (
               <button className="nav-link nav-link--desktop" onClick={() => setLocation("/lab")}>Lab</button>
             ) : null}
+            <button className="nav-link nav-link--desktop" onClick={() => setLocation("/account")}><UserRound className="size-4" /> Account</button>
             <Button variant="outline" className="rounded-full border-2 border-black bg-white" onClick={logout}>
               <LogOut className="size-4" />
               <span className="nav-link--desktop">Sign out</span>

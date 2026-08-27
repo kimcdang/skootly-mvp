@@ -18,7 +18,7 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
 
   if (!isUnauthorized) return;
 
-  startLogin();
+  if (!window.location.pathname.startsWith("/login")) startLogin();
 };
 
 queryClient.getQueryCache().subscribe(event => {
