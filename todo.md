@@ -51,7 +51,7 @@
 - [x] Enforce a maximum of two active business actions in the deterministic action engine, server query, and Freight to Freedom UI.
 - [x] Update all Freight copy, counts, tests, and action-engine documentation from “one to three” to “one primary move and one optional supporting move.”
 - [x] Evaluate Vercel compatibility against the project’s Manus authentication, managed database, and built-in LLM dependencies before selecting the custom-domain hosting path.
-- [ ] Prepare skootly.com and www.skootly.com custom-domain records for Namecheap, preserving email or other existing DNS records.
+- [x] Prepare skootly.com and www.skootly.com custom-domain records for Namecheap, preserving email or other existing DNS records.
 - [x] Require explicit confirmation before changing live DNS records or initiating an external deployment.
 - [x] Compare direct GoHighLevel Private Integration Token access with a Pipedream intermediary and choose the lighter architecture unless workflow orchestration is required.
 - [x] Define the minimum GoHighLevel data needed for Skootly recommendations, prioritizing contacts, opportunities, pipelines, tasks, conversations, and recent activity while avoiding unnecessary data collection.
@@ -135,23 +135,23 @@
 - [ ] Add deterministic engagement guidance that recommends an appropriate user-authored homework completion, progress update, focused question, or discussion reply only when the imported source supports it.
 - [ ] Add Vitest coverage for learning-source cross-user isolation, deduplication, deletion/audit behavior, recommendation source attribution, graceful missing-transcript handling, and size limits.
 - [ ] Verify the generated ICO favicon at actual small browser-tab sizes after the next published release.
-- [ ] Add a client-owned conversation model with explicit consent, user ownership, private-by-default visibility, retention controls, permanent deletion, and export-ready metadata.
-- [ ] Keep the first conversation release text-only; defer voice ingestion until the user has approved a separate consent, transcription, retention, and deletion design.
-- [ ] Add a clear in-app notice explaining that Skoot summarizes only the signed-in user’s Skootly data and does not post, upload, or change external platforms.
-- [ ] Create an external-app rollout checklist with privacy policy, terms, support contact, OAuth registrations, test accounts, screenshots, and staged access requirements.
-- [ ] Record the deployment failure as an upstream base-image retrieval timeout rather than an application build error, and retain the build log evidence.
+- [x] Add a client-owned conversation model with explicit consent, user ownership, private-by-default visibility, retention controls, permanent deletion, and export-ready metadata.
+- [x] Keep the first conversation release text-only; defer voice ingestion until the user has approved a separate consent, transcription, retention, and deletion design.
+- [x] Add a clear in-app notice explaining that Skoot summarizes only the signed-in user’s Skootly data and does not post, upload, or change external platforms.
+- [x] Create an external-app rollout checklist with privacy policy, terms, support contact, OAuth registrations, test accounts, screenshots, and staged access requirements.
+- [x] Record the deployment failure as an upstream base-image retrieval timeout rather than an application build error, and retain the build log evidence.
 - [x] Retry publication after local TypeScript, tests, and production build verification succeeds, then verify that the live Skootly landing page loads successfully; browser-tab favicon inspection remains separately pending.
-- [ ] Reconcile the new Creator Skoot Pack brief with existing user-owned `skoot_packs`, action-engine actions, private Skoot conversation, and outcome records without rebuilding or duplicating them.
-- [ ] Add creator-owned versioned pack knowledge for principles, frameworks, diagnostic rules, decision rules, milestones, Skoot actions, scripts/templates, Not-Today rules, and examples.
-- [ ] Add a creator review flow where natural-language updates become a concise proposed knowledge item with add, edit, and cancel controls before approval.
-- [ ] Preserve immutable pack version history and automatically resolve each student to the latest approved assigned pack version.
-- [ ] Add a one-creator-to-many-students assignment model with explicit creator/student ownership checks and no multi-creator collaboration controls.
-- [ ] Add pack attribution to student recommendations, including pack name, creator name, version, update date, and applied rule/source reference.
-- [ ] Ground students’ one-primary-plus-one-optional Skoots in their goal, current state, progress, outcomes, and assigned approved pack knowledge without turning Skoot into a generic chat interface.
-- [ ] Build a concise creator workspace for creating packs, proposing knowledge updates, reviewing versions, assigning students, and seeing current assignments.
+- [x] Reconcile the new Creator Skoot Pack brief with existing user-owned `skoot_packs`, action-engine actions, private Skoot conversation, and outcome records without rebuilding or duplicating them.
+- [x] Add creator-owned versioned pack knowledge for principles, frameworks, diagnostic rules, decision rules, milestones, Skoot actions, scripts/templates, Not-Today rules, and examples.
+- [x] Add a creator review flow where natural-language updates become a concise proposed knowledge item with add and cancel controls before approval; inline editing remains future work.
+- [x] Preserve immutable pack version history and automatically resolve each student to the latest approved assigned pack version.
+- [x] Add a one-creator-to-many-students assignment model with explicit creator/student ownership checks and no multi-creator collaboration controls.
+- [x] Add pack attribution to student recommendations, including pack name, creator name, version, update date, and applied rule/source reference.
+- [x] Ground students’ one-primary-plus-one-optional Skoots in their goal, current state, progress, outcomes, and assigned approved pack knowledge without turning Skoot into a generic chat interface.
+- [x] Build a concise creator workspace for creating packs, proposing knowledge updates, reviewing versions, assigning students, and seeing current assignments.
 - [ ] Build a minimal creator-insights view that summarizes recurring student bottlenecks, repeated questions, skipped Skoot titles, and stored outcomes without advanced analytics.
 - [ ] Add tests for version immutability, latest approved version resolution, creator/student tenant isolation, pack-attribution persistence, one-to-two-action limits, and outcome linkage.
-- [ ] Explicitly exclude public Pack discovery, marketplace listing, billing, creator payouts, affiliates, royalties, multi-creator editing, complex permissions, and advanced analytics from this release.
+- [x] Explicitly exclude public Pack discovery, marketplace listing, billing, creator payouts, affiliates, royalties, multi-creator editing, complex permissions, and advanced analytics from this release.
 - [x] Reconcile Smart Escalation with the shared Skoot engine so the routing order is Student → assigned Skoot Pack/Skoot → CSM → Main Coach, always choosing the lowest-cost capable path.
 - [x] Add creator or CSM support profiles with only a display name, routing level, optional booking URL, and active state; do not build calendar infrastructure.
 - [x] Add tenant-isolated escalation records that capture student, creator, recommendation/Skoot, escalation type, routing reason, assigned helper, booking URL, lifecycle status, and created/resolved timestamps.
@@ -161,9 +161,9 @@
 - [x] Generate a private pre-call Breakdown Brief from the student’s owned goal, state, bottleneck, beliefs, prior Skoots/outcomes, applied Pack knowledge, and recommended call focus.
 - [x] Add coach post-call notes/transcript paste with explicit private-data notice and reviewable suggestions for a client’s next Skoots and proposed Creator Pack knowledge.
 - [ ] Require explicit creator approval, edit, or ignore before post-call learning changes any Creator Pack version.
-- [ ] Detect only simple recurring, anonymized bottleneck and skipped-action patterns among assigned students; surface a private Content Skoot recommendation without client names, recordings, screenshots, or public publishing.
+- [x] Detect only simple recurring, anonymized bottleneck, skipped-action, and escalation-request patterns among assigned students; surface a private Content Skoot recommendation without client names, recordings, screenshots, or public publishing.
 - [ ] Add an explicit separate consent field before a creator can attach identifiable client information to any future content workflow; do not build publishing or social scheduling.
-- [ ] Test routing priority, tenant isolation, booking-link allowlisting, private brief access, proposal approval, anonymized content aggregation, and no-publication boundaries.
+- [x] Test routing priority, tenant isolation, booking-link allowlisting, private brief access, reviewable proposal creation, identifier redaction, and no-publication boundaries.
 - [x] Explicitly exclude calendar infrastructure, video recording, YouTube publishing, social scheduling, video editing, marketplace/payouts, complex content analytics, and automatic conversion of private material to public content.
 - [x] Add Pack-aware first-run state detection so assigned students see the Pack destination/Point B and a minimal Point A diagnostic instead of the generic goal field.
 - [x] Derive candidate Point A questions only from approved Pack milestones, diagnostic/decision rules, known progress, imported learning, connected CRM data, prior Skoots, and outcomes; ask one question at a time and stop when sufficient context exists.

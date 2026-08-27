@@ -15,8 +15,13 @@ export function chooseEscalation(input: { explicitlyRequestsHuman: boolean; repe
 }
 
 export function anonymizedContentSuggestion(bottleneck: string, count: number) {
+  const safePattern = bottleneck
+    .replace(/https?:\/\/\S+/gi, "[link removed]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email removed]")
+    .replace(/\b\+?\d[\d\s().-]{7,}\d\b/g, "[number removed]")
+    .slice(0, 180);
   return {
-    title: `Teach the real bottleneck behind “${bottleneck}”`,
+    title: `Teach the real bottleneck behind “${safePattern}”`,
     format: "Live walkthrough / YouTube video",
     outline: [
       "What students commonly believe is blocking progress",
@@ -26,5 +31,6 @@ export function anonymizedContentSuggestion(bottleneck: string, count: number) {
       "What evidence to look for after execution",
     ].join("\n"),
     occurrenceCount: count,
+    safePattern,
   };
 }

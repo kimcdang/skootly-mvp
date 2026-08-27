@@ -23,7 +23,7 @@ export function CreatorSupportPanel() {
     onError: error => toast.error(error.message),
   });
   const finish = trpc.escalations.complete.useMutation({ onSuccess: () => { utils.escalations.creatorQueue.invalidate(); toast.success("Breakdown marked complete."); }, onError: error => toast.error(error.message) });
-  const addNote = trpc.escalations.addBreakdownNote.useMutation({ onSuccess: () => { setNotes(""); setNextAction(""); setPackLearning(""); toast.success("Private notes saved. Any Pack learning still requires your approval."); }, onError: error => toast.error(error.message) });
+  const addNote = trpc.escalations.addBreakdownNote.useMutation({ onSuccess: async result => { setNotes(""); setNextAction(""); setPackLearning(""); await utils.creatorPacks.listProposals.invalidate(); toast.success(result.proposalId ? "Private notes saved. Pack learning is waiting in Review before publishing." : "Private notes saved."); }, onError: error => toast.error(error.message) });
   const content = trpc.escalations.contentSuggestions.useQuery(undefined, { enabled: false });
   const activeQueue = queue.data?.filter(item => item.escalation.status !== "completed") ?? [];
 

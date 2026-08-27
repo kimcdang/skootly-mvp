@@ -8,6 +8,7 @@ import {
   breakdownNotes,
   contentSkoots,
   creatorPackAssignments,
+  creatorPackAttributions,
   creatorPackDiagnosticAnswers,
   creatorPackKnowledge,
   creatorPackProposals,
@@ -259,6 +260,7 @@ export async function getWorkspace(userId: number, experimentVersion: Experiment
         eq(learningSources.userId, userId),
       ),
     );
+  const packAttribution = await getRecommendationCreatorPackAttribution(userId, latest.recommendation.id);
 
   return {
     mode: "recommendation" as const,
@@ -269,6 +271,7 @@ export async function getWorkspace(userId: number, experimentVersion: Experiment
     },
     skoots: actions,
     learningCitations,
+    packAttribution,
   };
 }
 
@@ -1031,6 +1034,48 @@ export async function getAssignedCreatorPackContext(studentUserId: number) {
   return { ...assignment, version, knowledge };
 }
 
+export async function saveCreatorPackRecommendationAttribution(studentUserId: number, recommendationId: number) {
+  const assigned = await getAssignedCreatorPackContext(studentUserId);
+  if (!assigned) return null;
+  const appliedKnowledge = assigned.knowledge.find(item => item.knowledgeType === "decision_rule")
+    ?? assigned.knowledge.find(item => item.knowledgeType === "diagnostic_rule")
+    ?? assigned.knowledge[0]
+    ?? null;
+  const db = await requireDb();
+  await db.insert(creatorPackAttributions).values({
+    creatorUserId: assigned.creatorUserId,
+    studentUserId,
+    packId: assigned.packId,
+    packVersionId: assigned.version.id,
+    knowledgeId: appliedKnowledge?.id ?? null,
+    recommendationId,
+    createdAt: Date.now(),
+  });
+  return { packId: assigned.packId, versionId: assigned.version.id };
+}
+
+export async function getRecommendationCreatorPackAttribution(studentUserId: number, recommendationId: number) {
+  const db = await requireDb();
+  return (await db
+    .select({
+      packName: creatorSkootPacks.name,
+      creatorName: users.name,
+      versionNumber: creatorPackVersions.versionNumber,
+      updatedAt: creatorPackVersions.approvedAt,
+      appliedRule: creatorPackKnowledge.content,
+    })
+    .from(creatorPackAttributions)
+    .innerJoin(creatorSkootPacks, eq(creatorPackAttributions.packId, creatorSkootPacks.id))
+    .innerJoin(creatorPackVersions, eq(creatorPackAttributions.packVersionId, creatorPackVersions.id))
+    .innerJoin(users, eq(creatorPackAttributions.creatorUserId, users.id))
+    .leftJoin(creatorPackKnowledge, eq(creatorPackAttributions.knowledgeId, creatorPackKnowledge.id))
+    .where(and(
+      eq(creatorPackAttributions.studentUserId, studentUserId),
+      eq(creatorPackAttributions.recommendationId, recommendationId),
+    ))
+    .limit(1))[0] ?? null;
+}
+
 export async function getMyPackJourney(studentUserId: number) {
   const assigned = await getAssignedCreatorPackContext(studentUserId);
   if (!assigned) return null;
@@ -1069,14 +1114,15 @@ export async function getCreatorPackInsights(creatorUserId: number) {
   const db = await requireDb();
   const assignments = await db.select({ studentUserId: creatorPackAssignments.studentUserId }).from(creatorPackAssignments).where(and(eq(creatorPackAssignments.creatorUserId, creatorUserId), isNull(creatorPackAssignments.revokedAt)));
   const studentIds = assignments.map(item => item.studentUserId).filter((id, index, values) => values.indexOf(id) === index);
-  if (!studentIds.length) return { assignedStudents: 0, bottlenecks: [], skippedSkoots: [], recentOutcomes: [] };
-  const [checkins, skipped, outcomes] = await Promise.all([
+  if (!studentIds.length) return { assignedStudents: 0, bottlenecks: [], skippedSkoots: [], escalationRequests: [], recentOutcomes: [] };
+  const [checkins, skipped, escalations, outcomes] = await Promise.all([
     db.select({ blocker: dailyCheckins.blocker }).from(dailyCheckins).where(inArray(dailyCheckins.userId, studentIds)).orderBy(desc(dailyCheckins.createdAt)).limit(100),
     db.select({ title: skoots.title }).from(skoots).where(and(inArray(skoots.userId, studentIds), eq(skoots.status, "skipped"))).orderBy(desc(skoots.createdAt)).limit(100),
+    db.select({ reason: smartEscalations.routingReason }).from(smartEscalations).where(and(eq(smartEscalations.creatorUserId, creatorUserId), inArray(smartEscalations.studentUserId, studentIds))).orderBy(desc(smartEscalations.createdAt)).limit(100),
     db.select({ outcomeType: skootOutcomes.outcomeType, revenueAmount: skootOutcomes.revenueAmount }).from(skootOutcomes).where(inArray(skootOutcomes.userId, studentIds)).orderBy(desc(skootOutcomes.createdAt)).limit(20),
   ]);
   const top = <T extends { [key: string]: unknown }>(items: T[], key: keyof T) => Object.entries(items.reduce<Record<string, number>>((acc, item) => { const value = String(item[key] ?? "").trim(); if (value) acc[value] = (acc[value] ?? 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([label, count]) => ({ label, count }));
-  return { assignedStudents: studentIds.length, bottlenecks: top(checkins, "blocker"), skippedSkoots: top(skipped, "title"), recentOutcomes: outcomes };
+  return { assignedStudents: studentIds.length, bottlenecks: top(checkins, "blocker"), skippedSkoots: top(skipped, "title"), escalationRequests: top(escalations, "reason"), recentOutcomes: outcomes };
 }
 
 export async function createConversation(userId: number, title?: string) {
@@ -1275,7 +1321,20 @@ export async function createBreakdownNote(creatorUserId: number, input: { escala
   const brief = await getEscalationBrief(creatorUserId, input.escalationId);
   const db = await requireDb();
   const [created] = await db.insert(breakdownNotes).values({ escalationId: input.escalationId, creatorUserId, authorUserId: creatorUserId, notes: input.notes, clientNextAction: input.clientNextAction || null, proposedKnowledgeType: input.proposedKnowledgeType || null, proposedKnowledgeContent: input.proposedKnowledgeContent || null, createdAt: Date.now() }).$returningId();
-  return { noteId: created.id, packId: brief.escalation.packId, studentUserId: brief.escalation.studentUserId };
+  let proposalId: number | null = null;
+  if (brief.escalation.packId && input.proposedKnowledgeType && input.proposedKnowledgeContent?.trim()) {
+    const [proposal] = await db.insert(creatorPackProposals).values({
+      packId: brief.escalation.packId,
+      creatorUserId,
+      sourceText: `Private breakdown learning (review required): ${input.notes.trim().slice(0, 2000)}`,
+      proposedType: input.proposedKnowledgeType,
+      proposedContent: input.proposedKnowledgeContent.trim(),
+      status: "pending",
+      createdAt: Date.now(),
+    }).$returningId();
+    proposalId = proposal.id;
+  }
+  return { noteId: created.id, proposalId, packId: brief.escalation.packId, studentUserId: brief.escalation.studentUserId };
 }
 
 export async function createContentSkootSuggestions(creatorUserId: number) {
@@ -1283,12 +1342,16 @@ export async function createContentSkootSuggestions(creatorUserId: number) {
   const assignments = await db.select({ studentUserId: creatorPackAssignments.studentUserId }).from(creatorPackAssignments).where(and(eq(creatorPackAssignments.creatorUserId, creatorUserId), isNull(creatorPackAssignments.revokedAt)));
   const ids = assignments.map(item => item.studentUserId).filter((id, index, all) => all.indexOf(id) === index);
   if (!ids.length) return [];
-  const checkins = await db.select({ blocker: dailyCheckins.blocker }).from(dailyCheckins).where(inArray(dailyCheckins.userId, ids)).orderBy(desc(dailyCheckins.createdAt)).limit(100);
-  const counts = checkins.reduce<Record<string, number>>((memo, item) => { const label = item.blocker.trim(); if (label) memo[label] = (memo[label] ?? 0) + 1; return memo; }, {});
+  const [checkins, skipped, escalations] = await Promise.all([
+    db.select({ label: dailyCheckins.blocker }).from(dailyCheckins).where(inArray(dailyCheckins.userId, ids)).orderBy(desc(dailyCheckins.createdAt)).limit(100),
+    db.select({ label: skoots.title }).from(skoots).where(and(inArray(skoots.userId, ids), eq(skoots.status, "skipped"))).orderBy(desc(skoots.createdAt)).limit(100),
+    db.select({ label: smartEscalations.routingReason }).from(smartEscalations).where(and(eq(smartEscalations.creatorUserId, creatorUserId), inArray(smartEscalations.studentUserId, ids))).orderBy(desc(smartEscalations.createdAt)).limit(100),
+  ]);
+  const counts = [...checkins, ...skipped, ...escalations].reduce<Record<string, number>>((memo, item) => { const label = item.label.trim(); if (label) memo[label] = (memo[label] ?? 0) + 1; return memo; }, {});
   const suggestions = Object.entries(counts).filter(([, count]) => count >= 2).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([bottleneckLabel, count]) => ({ bottleneckLabel, ...anonymizedContentSuggestion(bottleneckLabel, count) }));
   for (const suggestion of suggestions) {
     const existing = await db.select({ id: contentSkoots.id }).from(contentSkoots).where(and(eq(contentSkoots.creatorUserId, creatorUserId), eq(contentSkoots.bottleneckLabel, suggestion.bottleneckLabel), eq(contentSkoots.status, "suggested"))).limit(1);
-    if (!existing.length) await db.insert(contentSkoots).values({ creatorUserId, bottleneckLabel: suggestion.bottleneckLabel, occurrenceCount: suggestion.occurrenceCount, title: suggestion.title, format: suggestion.format, outline: suggestion.outline, createdAt: Date.now() });
+    if (!existing.length) await db.insert(contentSkoots).values({ creatorUserId, bottleneckLabel: suggestion.safePattern, occurrenceCount: suggestion.occurrenceCount, title: suggestion.title, format: suggestion.format, outline: suggestion.outline, createdAt: Date.now() });
   }
   return suggestions;
 }

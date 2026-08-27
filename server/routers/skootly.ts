@@ -17,6 +17,8 @@ import {
   trackEvent,
   updateSkootStatus,
   getEnabledLearningContextWithSources,
+  getAssignedCreatorPackContext,
+  saveCreatorPackRecommendationAttribution,
 } from "../db";
 import { generateRecommendation } from "../skootlyEngine";
 import { fetchHighLevelSnapshot, getHighLevelStatus } from "../highlevel";
@@ -33,6 +35,7 @@ export const skootlyRouter = router({
   generate: protectedProcedure.input(dailyCheckinInputSchema).mutation(async ({ ctx, input }) => {
     let serverHighLevelContext: string | undefined;
     const learning = await getEnabledLearningContextWithSources(ctx.user.id);
+    const assignedPack = await getAssignedCreatorPackContext(ctx.user.id);
     if (input.experimentVersion === "founder") {
       const access = await getHighLevelAccessForUser(ctx.user.id);
       try {
@@ -56,10 +59,17 @@ export const skootlyRouter = router({
         }
       }
     }
+    const packContext = assignedPack
+      ? [
+          `Assigned Creator Pack: ${assignedPack.packName} by ${assignedPack.creatorName || "creator"}.`,
+          `Approved version: ${assignedPack.version.versionNumber}.`,
+          ...assignedPack.knowledge.slice(0, 12).map(item => `[${item.knowledgeType}] ${item.content}`),
+        ].join("\n")
+      : "";
     const enrichedInput = {
       ...input,
       highLevelContext: serverHighLevelContext,
-      learningContext: learning.context || undefined,
+      learningContext: [learning.context, packContext].filter(Boolean).join("\n\n") || undefined,
     };
     const checkinId = await createCheckin(ctx.user.id, enrichedInput);
     await trackEvent(ctx.user.id, {
@@ -83,6 +93,7 @@ export const skootlyRouter = router({
       modelId,
     );
     await saveRecommendationLearningSources(ctx.user.id, recommendationId, learning.sourceIds);
+    await saveCreatorPackRecommendationAttribution(ctx.user.id, recommendationId);
     await trackEvent(ctx.user.id, {
       experimentVersion: input.experimentVersion,
       eventName: "skoot_generated",
