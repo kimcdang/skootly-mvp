@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   dailyCheckins,
@@ -16,6 +16,7 @@ import {
   creatorSkootPacks,
   experimentEvents,
   groupContexts,
+  identifiableContentConsents,
   InsertUser,
   learningHomeworkItems,
   learningSourceAudit,
@@ -29,6 +30,7 @@ import {
   skootOutcomes,
   skoots,
   smartEscalations,
+  supportNotifications,
   supportProfiles,
   users,
   validationFeedback,
@@ -37,7 +39,7 @@ import type { ExperimentVersion } from "../shared/experiments";
 import type { DailyCheckinInput, RecommendationOutput } from "../shared/skootly";
 import { ENV } from "./_core/env";
 import type { GeneratedBusinessAction } from "./actionEngine";
-import { deriveNextPackDiagnosticQuestion, type CreatorKnowledgeType } from "./creatorPacks";
+import { buildImmutableCreatorPackVersion, deriveNextPackDiagnosticQuestion, resolveActiveApprovedVersion, type CreatorKnowledgeType } from "./creatorPacks";
 import { anonymizedContentSuggestion } from "./escalations";
 import {
   buildLearningContext,
@@ -991,16 +993,14 @@ export async function approveCreatorPackProposal(creatorUserId: number, input: {
   const now = Date.now();
   return db.transaction(async tx => {
     const latest = (await tx.select().from(creatorPackVersions).where(eq(creatorPackVersions.packId, pack.id)).orderBy(desc(creatorPackVersions.versionNumber)).limit(1))[0];
-    const nextNumber = (latest?.versionNumber ?? 0) + 1;
-    const [version] = await tx.insert(creatorPackVersions).values({ packId: pack.id, creatorUserId, versionNumber: nextNumber, changeSummary: input.content || proposal.proposedContent, approvedAt: now }).$returningId();
-    if (pack.activeVersionId) {
-      const existingKnowledge = await tx.select().from(creatorPackKnowledge).where(eq(creatorPackKnowledge.versionId, pack.activeVersionId));
-      if (existingKnowledge.length) await tx.insert(creatorPackKnowledge).values(existingKnowledge.map(item => ({ packId: pack.id, versionId: version.id, creatorUserId, knowledgeType: item.knowledgeType, content: item.content, sourceText: item.sourceText, createdAt: now })));
-    }
-    await tx.insert(creatorPackKnowledge).values({ packId: pack.id, versionId: version.id, creatorUserId, knowledgeType: input.knowledgeType || proposal.proposedType, content: input.content || proposal.proposedContent, sourceText: proposal.sourceText, createdAt: now });
+    const existingKnowledge = pack.activeVersionId ? await tx.select().from(creatorPackKnowledge).where(eq(creatorPackKnowledge.versionId, pack.activeVersionId)) : [];
+    const snapshot = buildImmutableCreatorPackVersion(latest?.versionNumber ?? 0, existingKnowledge.map(item => ({ knowledgeType: item.knowledgeType, content: item.content, sourceText: item.sourceText })), { knowledgeType: input.knowledgeType || proposal.proposedType, content: input.content || proposal.proposedContent, sourceText: proposal.sourceText });
+    const [version] = await tx.insert(creatorPackVersions).values({ packId: pack.id, creatorUserId, versionNumber: snapshot.versionNumber, changeSummary: snapshot.addition.content, approvedAt: now }).$returningId();
+    if (snapshot.carriedKnowledge.length) await tx.insert(creatorPackKnowledge).values(snapshot.carriedKnowledge.map(item => ({ packId: pack.id, versionId: version.id, creatorUserId, ...item, createdAt: now })));
+    await tx.insert(creatorPackKnowledge).values({ packId: pack.id, versionId: version.id, creatorUserId, ...snapshot.addition, createdAt: now });
     await tx.update(creatorSkootPacks).set({ activeVersionId: version.id, updatedAt: now }).where(and(eq(creatorSkootPacks.id, pack.id), eq(creatorSkootPacks.creatorUserId, creatorUserId)));
     await tx.update(creatorPackProposals).set({ status: "approved", resolvedAt: now }).where(and(eq(creatorPackProposals.id, proposal.id), eq(creatorPackProposals.creatorUserId, creatorUserId)));
-    return { versionId: version.id, versionNumber: nextNumber };
+    return { versionId: version.id, versionNumber: snapshot.versionNumber };
   });
 }
 
@@ -1028,7 +1028,7 @@ export async function getAssignedCreatorPackContext(studentUserId: number) {
   const db = await requireDb();
   const assignment = (await db.select({ packId: creatorPackAssignments.packId, creatorUserId: creatorPackAssignments.creatorUserId, packName: creatorSkootPacks.name, packDescription: creatorSkootPacks.description, activeVersionId: creatorSkootPacks.activeVersionId, creatorName: users.name }).from(creatorPackAssignments).innerJoin(creatorSkootPacks, eq(creatorPackAssignments.packId, creatorSkootPacks.id)).innerJoin(users, eq(creatorPackAssignments.creatorUserId, users.id)).where(and(eq(creatorPackAssignments.studentUserId, studentUserId), isNull(creatorPackAssignments.revokedAt))).limit(1))[0];
   if (!assignment?.activeVersionId) return null;
-  const version = (await db.select().from(creatorPackVersions).where(and(eq(creatorPackVersions.id, assignment.activeVersionId), eq(creatorPackVersions.packId, assignment.packId))).limit(1))[0];
+  const version = resolveActiveApprovedVersion(assignment.activeVersionId, await db.select().from(creatorPackVersions).where(and(eq(creatorPackVersions.id, assignment.activeVersionId), eq(creatorPackVersions.packId, assignment.packId))).limit(1));
   if (!version) return null;
   const knowledge = await db.select().from(creatorPackKnowledge).where(and(eq(creatorPackKnowledge.packId, assignment.packId), eq(creatorPackKnowledge.versionId, version.id), eq(creatorPackKnowledge.creatorUserId, assignment.creatorUserId))).orderBy(creatorPackKnowledge.id);
   return { ...assignment, version, knowledge };
@@ -1114,15 +1114,29 @@ export async function getCreatorPackInsights(creatorUserId: number) {
   const db = await requireDb();
   const assignments = await db.select({ studentUserId: creatorPackAssignments.studentUserId }).from(creatorPackAssignments).where(and(eq(creatorPackAssignments.creatorUserId, creatorUserId), isNull(creatorPackAssignments.revokedAt)));
   const studentIds = assignments.map(item => item.studentUserId).filter((id, index, values) => values.indexOf(id) === index);
-  if (!studentIds.length) return { assignedStudents: 0, bottlenecks: [], skippedSkoots: [], escalationRequests: [], recentOutcomes: [] };
-  const [checkins, skipped, escalations, outcomes] = await Promise.all([
+  if (!studentIds.length) return { assignedStudents: 0, bottlenecks: [], repeatedQuestions: [], misconceptions: [], skippedSkoots: [], escalationRequests: [], outcomeSummary: [], recentOutcomes: [] };
+  const [checkins, questions, diagnosticAnswers, skipped, escalations, outcomes] = await Promise.all([
     db.select({ blocker: dailyCheckins.blocker }).from(dailyCheckins).where(inArray(dailyCheckins.userId, studentIds)).orderBy(desc(dailyCheckins.createdAt)).limit(100),
+    db.select({ content: skootConversationMessages.content }).from(skootConversationMessages).where(and(inArray(skootConversationMessages.userId, studentIds), eq(skootConversationMessages.role, "user"))).orderBy(desc(skootConversationMessages.createdAt)).limit(100),
+    db.select({ answer: creatorPackDiagnosticAnswers.answer }).from(creatorPackDiagnosticAnswers).where(and(eq(creatorPackDiagnosticAnswers.creatorUserId, creatorUserId), inArray(creatorPackDiagnosticAnswers.studentUserId, studentIds))).orderBy(desc(creatorPackDiagnosticAnswers.createdAt)).limit(100),
     db.select({ title: skoots.title }).from(skoots).where(and(inArray(skoots.userId, studentIds), eq(skoots.status, "skipped"))).orderBy(desc(skoots.createdAt)).limit(100),
     db.select({ reason: smartEscalations.routingReason }).from(smartEscalations).where(and(eq(smartEscalations.creatorUserId, creatorUserId), inArray(smartEscalations.studentUserId, studentIds))).orderBy(desc(smartEscalations.createdAt)).limit(100),
     db.select({ outcomeType: skootOutcomes.outcomeType, revenueAmount: skootOutcomes.revenueAmount }).from(skootOutcomes).where(inArray(skootOutcomes.userId, studentIds)).orderBy(desc(skootOutcomes.createdAt)).limit(20),
   ]);
   const top = <T extends { [key: string]: unknown }>(items: T[], key: keyof T) => Object.entries(items.reduce<Record<string, number>>((acc, item) => { const value = String(item[key] ?? "").trim(); if (value) acc[value] = (acc[value] ?? 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([label, count]) => ({ label, count }));
-  return { assignedStudents: studentIds.length, bottlenecks: top(checkins, "blocker"), skippedSkoots: top(skipped, "title"), escalationRequests: top(escalations, "reason"), recentOutcomes: outcomes };
+  const classify = (value: string) => {
+    const text = value.toLowerCase();
+    if (/\b(price|pricing|charge|cost)\b/.test(text)) return "Pricing and offer confidence";
+    if (/\b(lead|prospect|audience|traffic)\b/.test(text)) return "Finding the right prospects";
+    if (/\b(call|book|sales|close|follow.?up)\b/.test(text)) return "Sales conversations and follow-up";
+    if (/\b(content|post|video|webinar|challenge)\b/.test(text)) return "Content and campaign execution";
+    if (/\b(tech|tool|setup|integrat|automat)\b/.test(text)) return "Tool and setup friction";
+    return "Clarifying the next move";
+  };
+  const categorizedQuestions = questions.map(item => ({ label: classify(item.content) }));
+  const categorizedMisconceptions = diagnosticAnswers.filter(item => /\b(can't|cannot|not ready|need more|before i|first have to|don't know)\b/i.test(item.answer)).map(item => ({ label: classify(item.answer) }));
+  const outcomeSummary = top(outcomes, "outcomeType");
+  return { assignedStudents: studentIds.length, bottlenecks: top(checkins, "blocker"), repeatedQuestions: top(categorizedQuestions, "label"), misconceptions: top(categorizedMisconceptions, "label"), skippedSkoots: top(skipped, "title"), escalationRequests: top(escalations, "reason"), outcomeSummary, recentOutcomes: outcomes };
 }
 
 export async function createConversation(userId: number, title?: string) {
@@ -1258,15 +1272,21 @@ export async function getSupportProfiles(creatorUserId: number) {
   return db.select().from(supportProfiles).where(eq(supportProfiles.creatorUserId, creatorUserId)).orderBy(supportProfiles.routingLevel);
 }
 
-export async function saveSupportProfile(creatorUserId: number, input: { id?: number; routingLevel: "csm" | "coach"; displayName: string; bookingUrl: string | null; active?: boolean }) {
+export async function saveSupportProfile(creatorUserId: number, input: { id?: number; routingLevel: "csm" | "coach"; displayName: string; bookingUrl: string | null; assigneeEmail?: string; active?: boolean }) {
   const db = await requireDb();
   const now = Date.now();
+  let userId: number | null = null;
+  if (input.assigneeEmail?.trim()) {
+    const assignee = (await db.select({ id: users.id }).from(users).where(eq(users.email, input.assigneeEmail.trim().toLowerCase())).limit(1))[0];
+    if (!assignee) throw new Error("That support person needs a Skootly account before they can receive private breakdowns.");
+    userId = assignee.id;
+  }
   if (input.id) {
-    const result = await db.update(supportProfiles).set({ routingLevel: input.routingLevel, displayName: input.displayName, bookingUrl: input.bookingUrl, active: input.active ?? true, updatedAt: now }).where(and(eq(supportProfiles.id, input.id), eq(supportProfiles.creatorUserId, creatorUserId)));
+    const result = await db.update(supportProfiles).set({ userId, routingLevel: input.routingLevel, displayName: input.displayName, bookingUrl: input.bookingUrl, active: input.active ?? true, updatedAt: now }).where(and(eq(supportProfiles.id, input.id), eq(supportProfiles.creatorUserId, creatorUserId)));
     if (!result[0]?.affectedRows) throw new Error("Support profile not found.");
     return { id: input.id };
   }
-  const [created] = await db.insert(supportProfiles).values({ creatorUserId, routingLevel: input.routingLevel, displayName: input.displayName, bookingUrl: input.bookingUrl, active: input.active ?? true, createdAt: now, updatedAt: now }).$returningId();
+  const [created] = await db.insert(supportProfiles).values({ creatorUserId, userId, routingLevel: input.routingLevel, displayName: input.displayName, bookingUrl: input.bookingUrl, active: input.active ?? true, createdAt: now, updatedAt: now }).$returningId();
   return { id: created.id };
 }
 
@@ -1282,7 +1302,39 @@ export async function getStudentEscalationRoute(studentUserId: number, relatedSk
 export async function createSmartEscalation(input: { creatorUserId: number; studentUserId: number; supportProfileId: number | null; relatedSkootId: number | null; relatedRecommendationId: number | null; packId: number | null; escalationType: "csm" | "coach"; routingReason: string; bookingUrl: string | null }) {
   const db = await requireDb();
   const [created] = await db.insert(smartEscalations).values({ ...input, createdAt: Date.now() }).$returningId();
+  const assigned = input.supportProfileId
+    ? (await db.select({ userId: supportProfiles.userId }).from(supportProfiles).where(and(eq(supportProfiles.id, input.supportProfileId), eq(supportProfiles.creatorUserId, input.creatorUserId))).limit(1))[0]
+    : null;
+  const recipients = [input.creatorUserId, assigned?.userId].filter((value, index, values): value is number => Boolean(value) && values.indexOf(value) === index);
+  if (recipients.length) await db.insert(supportNotifications).values(recipients.map(recipientUserId => ({ creatorUserId: input.creatorUserId, recipientUserId, escalationId: created.id, title: "New private breakdown request", body: `A student requested ${input.escalationType === "csm" ? "CSM" : "coach"} support.`, deepLink: `/creator?escalation=${created.id}`, createdAt: Date.now() })));
   return { mode: "escalation" as const, escalationId: created.id, escalationType: input.escalationType, routingReason: input.routingReason, bookingUrl: input.bookingUrl };
+}
+
+export async function getSupportNotifications(recipientUserId: number) {
+  const db = await requireDb();
+  return db.select().from(supportNotifications).where(and(eq(supportNotifications.recipientUserId, recipientUserId), isNull(supportNotifications.dismissedAt))).orderBy(desc(supportNotifications.createdAt)).limit(20);
+}
+
+export async function updateSupportNotification(recipientUserId: number, notificationId: number, action: "read" | "dismiss") {
+  const db = await requireDb();
+  const result = await db.update(supportNotifications).set(action === "read" ? { readAt: Date.now() } : { dismissedAt: Date.now() }).where(and(eq(supportNotifications.id, notificationId), eq(supportNotifications.recipientUserId, recipientUserId)));
+  if (!result[0]?.affectedRows) throw new Error("Private support notification not found.");
+  return { success: true };
+}
+
+export async function grantIdentifiableContentConsent(studentUserId: number, input: { creatorUserId: number; scope: "name" | "result" | "recording" | "screenshot" | "business_info"; purpose: string }) {
+  const db = await requireDb();
+  const assignment = (await db.select({ id: creatorPackAssignments.id }).from(creatorPackAssignments).where(and(eq(creatorPackAssignments.creatorUserId, input.creatorUserId), eq(creatorPackAssignments.studentUserId, studentUserId), isNull(creatorPackAssignments.revokedAt))).limit(1))[0];
+  if (!assignment) throw new Error("Consent can only be granted to your currently assigned Creator Pack owner.");
+  const now = Date.now();
+  await db.insert(identifiableContentConsents).values({ creatorUserId: input.creatorUserId, studentUserId, scope: input.scope, purpose: input.purpose.slice(0, 1000), consentedAt: now, createdAt: now }).onDuplicateKeyUpdate({ set: { purpose: input.purpose.slice(0, 1000), consentedAt: now, revokedAt: null } });
+  return { success: true };
+}
+
+export async function revokeIdentifiableContentConsent(studentUserId: number, input: { creatorUserId: number; scope: "name" | "result" | "recording" | "screenshot" | "business_info" }) {
+  const db = await requireDb();
+  await db.update(identifiableContentConsents).set({ revokedAt: Date.now() }).where(and(eq(identifiableContentConsents.creatorUserId, input.creatorUserId), eq(identifiableContentConsents.studentUserId, studentUserId), eq(identifiableContentConsents.scope, input.scope)));
+  return { success: true };
 }
 
 export async function getStudentEscalations(studentUserId: number) {
@@ -1290,37 +1342,40 @@ export async function getStudentEscalations(studentUserId: number) {
   return db.select({ escalation: smartEscalations, helperName: supportProfiles.displayName }).from(smartEscalations).leftJoin(supportProfiles, eq(smartEscalations.supportProfileId, supportProfiles.id)).where(eq(smartEscalations.studentUserId, studentUserId)).orderBy(desc(smartEscalations.createdAt));
 }
 
-export async function getCreatorEscalations(creatorUserId: number) {
+export async function getCreatorEscalations(actorUserId: number) {
   const db = await requireDb();
-  return db.select({ escalation: smartEscalations, studentName: users.name, studentEmail: users.email, helperName: supportProfiles.displayName }).from(smartEscalations).innerJoin(users, eq(smartEscalations.studentUserId, users.id)).leftJoin(supportProfiles, eq(smartEscalations.supportProfileId, supportProfiles.id)).where(eq(smartEscalations.creatorUserId, creatorUserId)).orderBy(desc(smartEscalations.createdAt));
+  return db.select({ escalation: smartEscalations, studentName: users.name, studentEmail: users.email, helperName: supportProfiles.displayName }).from(smartEscalations).innerJoin(users, eq(smartEscalations.studentUserId, users.id)).leftJoin(supportProfiles, eq(smartEscalations.supportProfileId, supportProfiles.id)).where(or(eq(smartEscalations.creatorUserId, actorUserId), eq(supportProfiles.userId, actorUserId))).orderBy(desc(smartEscalations.createdAt));
 }
 
 export async function updateEscalationStatus(input: { actorUserId: number; escalationId: number; allowed: "student" | "creator"; status: "booked" | "completed" }) {
   const db = await requireDb();
-  const actorColumn = input.allowed === "student" ? smartEscalations.studentUserId : smartEscalations.creatorUserId;
-  const result = await db.update(smartEscalations).set({ status: input.status, resolvedAt: input.status === "completed" ? Date.now() : null }).where(and(eq(smartEscalations.id, input.escalationId), eq(actorColumn, input.actorUserId)));
+  const ownership = input.allowed === "student"
+    ? eq(smartEscalations.studentUserId, input.actorUserId)
+    : or(eq(smartEscalations.creatorUserId, input.actorUserId), inArray(smartEscalations.supportProfileId, db.select({ id: supportProfiles.id }).from(supportProfiles).where(eq(supportProfiles.userId, input.actorUserId))));
+  const result = await db.update(smartEscalations).set({ status: input.status, resolvedAt: input.status === "completed" ? Date.now() : null }).where(and(eq(smartEscalations.id, input.escalationId), ownership));
   if (!result[0]?.affectedRows) throw new Error("Private escalation not found.");
   return { success: true };
 }
 
-export async function getEscalationBrief(creatorUserId: number, escalationId: number) {
+export async function getEscalationBrief(actorUserId: number, escalationId: number) {
   const db = await requireDb();
-  const escalation = (await db.select().from(smartEscalations).where(and(eq(smartEscalations.id, escalationId), eq(smartEscalations.creatorUserId, creatorUserId))).limit(1))[0];
+  const escalation = (await db.select({ escalation: smartEscalations }).from(smartEscalations).leftJoin(supportProfiles, eq(smartEscalations.supportProfileId, supportProfiles.id)).where(and(eq(smartEscalations.id, escalationId), or(eq(smartEscalations.creatorUserId, actorUserId), eq(supportProfiles.userId, actorUserId)))).limit(1))[0]?.escalation;
   if (!escalation) throw new Error("Private breakdown not found.");
   const [checkins, actions, outcomes, pack] = await Promise.all([
     db.select().from(dailyCheckins).where(eq(dailyCheckins.userId, escalation.studentUserId)).orderBy(desc(dailyCheckins.createdAt)).limit(1),
     db.select().from(skoots).where(eq(skoots.userId, escalation.studentUserId)).orderBy(desc(skoots.createdAt)).limit(6),
     db.select().from(skootOutcomes).where(eq(skootOutcomes.userId, escalation.studentUserId)).orderBy(desc(skootOutcomes.createdAt)).limit(6),
-    escalation.packId ? getOwnedCreatorPack(creatorUserId, escalation.packId) : Promise.resolve(null),
+    escalation.packId ? getOwnedCreatorPack(escalation.creatorUserId, escalation.packId) : Promise.resolve(null),
   ]);
   const knowledge = pack?.activeVersionId ? await db.select({ content: creatorPackKnowledge.content, knowledgeType: creatorPackKnowledge.knowledgeType }).from(creatorPackKnowledge).where(and(eq(creatorPackKnowledge.packId, pack.id), eq(creatorPackKnowledge.versionId, pack.activeVersionId))).limit(8) : [];
   return { escalation, checkin: checkins[0] ?? null, actions, outcomes, knowledge, recommendedFocus: `Clarify the root constraint behind: ${checkins[0]?.blocker ?? escalation.routingReason}` };
 }
 
-export async function createBreakdownNote(creatorUserId: number, input: { escalationId: number; notes: string; clientNextAction?: string; proposedKnowledgeType?: CreatorKnowledgeType; proposedKnowledgeContent?: string }) {
-  const brief = await getEscalationBrief(creatorUserId, input.escalationId);
+export async function createBreakdownNote(actorUserId: number, input: { escalationId: number; notes: string; clientNextAction?: string; proposedKnowledgeType?: CreatorKnowledgeType; proposedKnowledgeContent?: string }) {
+  const brief = await getEscalationBrief(actorUserId, input.escalationId);
   const db = await requireDb();
-  const [created] = await db.insert(breakdownNotes).values({ escalationId: input.escalationId, creatorUserId, authorUserId: creatorUserId, notes: input.notes, clientNextAction: input.clientNextAction || null, proposedKnowledgeType: input.proposedKnowledgeType || null, proposedKnowledgeContent: input.proposedKnowledgeContent || null, createdAt: Date.now() }).$returningId();
+  const creatorUserId = brief.escalation.creatorUserId;
+  const [created] = await db.insert(breakdownNotes).values({ escalationId: input.escalationId, creatorUserId, authorUserId: actorUserId, notes: input.notes, clientNextAction: input.clientNextAction || null, proposedKnowledgeType: input.proposedKnowledgeType || null, proposedKnowledgeContent: input.proposedKnowledgeContent || null, createdAt: Date.now() }).$returningId();
   let proposalId: number | null = null;
   if (brief.escalation.packId && input.proposedKnowledgeType && input.proposedKnowledgeContent?.trim()) {
     const [proposal] = await db.insert(creatorPackProposals).values({

@@ -11,6 +11,19 @@ export type PackDiagnosticQuestion = {
   knowledgeId: number;
 };
 
+export function buildImmutableCreatorPackVersion<T extends object, U extends object>(latestVersionNumber: number, existingKnowledge: T[], addition: U) {
+  return {
+    versionNumber: latestVersionNumber + 1,
+    carriedKnowledge: existingKnowledge.map(item => ({ ...item })),
+    addition: { ...addition },
+  };
+}
+
+export function resolveActiveApprovedVersion<T extends { id: number }>(activeVersionId: number | null, versions: T[]) {
+  if (!activeVersionId) return null;
+  return versions.find(version => version.id === activeVersionId) ?? null;
+}
+
 export function deriveNextPackDiagnosticQuestion(
   knowledge: Array<{ id: number; knowledgeType: CreatorKnowledgeType; content: string }>,
   answeredKeys: string[],

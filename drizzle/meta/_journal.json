@@ -71,6 +71,13 @@
       "when": 1787796683150,
       "tag": "0009_legal_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1787841093207,
+      "tag": "0010_woozy_sandman",
+      "breakpoints": true
     }
   ]
 }

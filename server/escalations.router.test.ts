@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   getSupportProfiles: vi.fn(), saveSupportProfile: vi.fn(), getStudentEscalations: vi.fn(), getCreatorEscalations: vi.fn(),
   getStudentEscalationRoute: vi.fn(), createSmartEscalation: vi.fn(), updateEscalationStatus: vi.fn(),
   getEscalationBrief: vi.fn(), createBreakdownNote: vi.fn(), createContentSkootSuggestions: vi.fn(),
+  getSupportNotifications: vi.fn(), updateSupportNotification: vi.fn(), grantIdentifiableContentConsent: vi.fn(), revokeIdentifiableContentConsent: vi.fn(),
 }));
 
 vi.mock("./db", async importOriginal => ({
@@ -34,6 +35,10 @@ describe("Smart Escalation protected router", () => {
     mocks.updateEscalationStatus.mockResolvedValue({ success: true });
     mocks.getEscalationBrief.mockResolvedValue({ escalation: { id: 12 }, checkin: null, actions: [], outcomes: [], knowledge: [], recommendedFocus: "Clarify the constraint." });
     mocks.createBreakdownNote.mockResolvedValue({ noteId: 8, proposalId: 15, packId: 5, studentUserId: 42 });
+    mocks.getSupportNotifications.mockResolvedValue([]);
+    mocks.updateSupportNotification.mockResolvedValue({ success: true });
+    mocks.grantIdentifiableContentConsent.mockResolvedValue({ success: true });
+    mocks.revokeIdentifiableContentConsent.mockResolvedValue({ success: true });
   });
 
   it("routes the signed-in student to the lowest-cost available human helper", async () => {
@@ -55,5 +60,28 @@ describe("Smart Escalation protected router", () => {
     expect(mocks.getEscalationBrief).toHaveBeenCalledWith(9, 12);
     expect(mocks.createBreakdownNote).toHaveBeenCalledWith(9, expect.objectContaining({ escalationId: 12, proposedKnowledgeType: "decision_rule" }));
     expect(result.proposalId).toBe(15);
+  });
+
+  it("scopes support notifications and assigned-helper queue access to the authenticated recipient", async () => {
+    mocks.getCreatorEscalations.mockResolvedValue([]);
+    const caller = appRouter.createCaller(context(17));
+    await caller.escalations.notifications();
+    await caller.escalations.updateNotification({ notificationId: 6, action: "dismiss" });
+    await caller.escalations.creatorQueue();
+    await caller.escalations.brief({ escalationId: 12 });
+    await caller.escalations.complete({ escalationId: 12 });
+    expect(mocks.getSupportNotifications).toHaveBeenCalledWith(17);
+    expect(mocks.updateSupportNotification).toHaveBeenCalledWith(17, 6, "dismiss");
+    expect(mocks.getCreatorEscalations).toHaveBeenCalledWith(17);
+    expect(mocks.getEscalationBrief).toHaveBeenCalledWith(17, 12);
+    expect(mocks.updateEscalationStatus).toHaveBeenCalledWith({ actorUserId: 17, escalationId: 12, allowed: "creator", status: "completed" });
+  });
+
+  it("binds identifiable-content consent grant and revocation to the authenticated student", async () => {
+    const caller = appRouter.createCaller(context(42));
+    await caller.escalations.grantIdentifiableConsent({ creatorUserId: 9, scope: "result", purpose: "Allow a future reviewed case study." });
+    await caller.escalations.revokeIdentifiableConsent({ creatorUserId: 9, scope: "result" });
+    expect(mocks.grantIdentifiableContentConsent).toHaveBeenCalledWith(42, { creatorUserId: 9, scope: "result", purpose: "Allow a future reviewed case study." });
+    expect(mocks.revokeIdentifiableContentConsent).toHaveBeenCalledWith(42, { creatorUserId: 9, scope: "result" });
   });
 });

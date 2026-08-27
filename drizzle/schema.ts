@@ -750,6 +750,40 @@ export const contentSkoots = mysqlTable(
   table => [index("content_skoots_creator_idx").on(table.creatorUserId, table.status, table.createdAt)],
 );
 
+/** Private notification for a creator or explicitly assigned support user. */
+export const supportNotifications = mysqlTable(
+  "support_notifications",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    recipientUserId: int("recipientUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    escalationId: int("escalationId").notNull().references(() => smartEscalations.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 300 }).notNull(),
+    body: text("body").notNull(),
+    deepLink: varchar("deepLink", { length: 1000 }).notNull(),
+    readAt: bigint("readAt", { mode: "number" }),
+    dismissedAt: bigint("dismissedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [index("support_notif_recipient_idx").on(table.recipientUserId, table.dismissedAt, table.createdAt)],
+);
+
+/** Separate, revocable consent gate for any future identifiable content use. No publishing workflow consumes this table. */
+export const identifiableContentConsents = mysqlTable(
+  "identifiable_content_consents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    studentUserId: int("studentUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    scope: mysqlEnum("scope", ["name", "result", "recording", "screenshot", "business_info"]).notNull(),
+    purpose: varchar("purpose", { length: 1000 }).notNull(),
+    consentedAt: bigint("consentedAt", { mode: "number" }).notNull(),
+    revokedAt: bigint("revokedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("ident_content_consent_unique").on(table.creatorUserId, table.studentUserId, table.scope), index("ident_content_student_idx").on(table.studentUserId, table.revokedAt)],
+);
+
 export type HighLevelConnection = typeof highLevelConnections.$inferSelect;
 export type HighLevelOAuthState = typeof highLevelOAuthStates.$inferSelect;
 export type LearningSource = typeof learningSources.$inferSelect;
@@ -768,3 +802,5 @@ export type CreatorPackKnowledge = typeof creatorPackKnowledge.$inferSelect;
 export type CreatorPackDiagnosticAnswer = typeof creatorPackDiagnosticAnswers.$inferSelect;
 export type SupportProfile = typeof supportProfiles.$inferSelect;
 export type SmartEscalation = typeof smartEscalations.$inferSelect;
+export type SupportNotification = typeof supportNotifications.$inferSelect;
+export type IdentifiableContentConsent = typeof identifiableContentConsents.$inferSelect;

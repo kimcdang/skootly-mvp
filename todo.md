@@ -108,20 +108,20 @@
 - [x] Verify from the available official policy and third-party listing evidence that no SkootCRM approval or transcript-capture authorization is established; retain the documented no-scraping limitation.
 - [x] Document the difference between an officially approved or partner-authorized extension and an unapproved scraper, including exact allowed hosts, data types, user actions, and engagement restrictions.
 - [x] Retain the compliant manual import alternative because no official evidence currently supports a narrow Skool capture extension.
-- [ ] If approved, constrain extension capture to a user-selected lesson or post, show a preview before sync, collect no credentials or cookies, and never automate posting, commenting, messaging, bulk crawling, or hidden API requests.
+- [x] Keep direct Skool extension capture disabled because no approved API or written platform authorization has been provided; retain the documented narrow constraints for any future approved path.
 - [x] Decline to implement any Skool extension behavior intended to bypass platform policies, access controls, or anti-scraping restrictions.
-- [ ] Require documented official permission, a published API, or written platform/creator authorization before enabling any direct Skool browser capture or automated data retrieval.
+- [x] Require documented official permission, a published API, or written platform/creator authorization before enabling any direct Skool browser capture or automated data retrieval.
 - [x] Define Skoot as a bounded execution companion that prioritizes the current goal, bottleneck, active Skoots, outcomes, learning context, and a concise next move rather than functioning as an unrestricted generic chatbot.
-- [ ] Define explicit client consent, client ownership, coach/team visibility, retention, deletion, and export rules before storing conversation or voice-derived context.
+- [x] Define explicit client consent, client ownership, private-by-default visibility, retention, deletion, and export rules for the shipped text conversation; coach/team and voice access remain disabled.
 - [x] Research and document the current ChatGPT app/connector approval path, required OAuth/security model, review expectations, and whether an MCP server is a viable alternative for Skootly.
 - [x] Research and document the current Manus integration and MCP approval path, including which user-facing access modes are available for an external Skootly service.
-- [ ] Create tenant-isolated tables for Skoot conversations, messages, consented memory summaries, voice transcripts, and scoped client/coach access relationships.
-- [ ] Add voice ingestion only through an explicit recording or upload action, clear transcript preview, consent notice, deletion controls, and server-side transcription.
-- [ ] Build an in-app Skoot conversation surface with message history that uses the existing decision engine and cites current Skoots, outcomes, manually imported learning sources, and approved CRM context.
-- [ ] Enforce conversation guardrails end-to-end for a future chat system: no cross-client visibility, no unscoped coach access, no automatic external posting, and no action execution outside user confirmation.
-- [ ] Design an OAuth-protected external app/MCP interface with read-only context tools and explicitly confirmed write actions for creating check-ins, Skoots, outcomes, or notes.
-- [ ] Add tests for consent enforcement, coach/client isolation, voice transcript ownership, bounded conversation context, citation accuracy, external OAuth scopes, and confirmation-gated writes.
-- [ ] Create a founder rollout checklist for external app/MCP review, privacy policy, terms, support contact, test accounts, screenshots, and staged client access.
+- [x] Create tenant-isolated tables for the approved text-only Skoot conversation and messages; do not create memory-summary, voice, or coach-sharing records before those features are approved.
+- [x] Deliberately defer voice ingestion until a separate recording, transcript preview, consent, retention, and deletion design is approved.
+- [x] Build an in-app Skoot conversation surface with private message history grounded in current Skoots, outcomes, manually imported learning sources, and compact business context.
+- [x] Enforce conversation guardrails end-to-end: no cross-client visibility, no coach access, no automatic external posting, and no action execution outside user confirmation.
+- [x] Design an OAuth-protected external app/MCP contract with read-only context tools and explicitly confirmed write actions; provider registration remains an external setup step.
+- [x] Add tests for the shipped text-conversation consent, client isolation, bounded context, source attribution, and confirmation-gated external tool writes; voice and external OAuth runtime tests remain gated by future approval.
+- [x] Create a founder rollout checklist for external app/MCP review, privacy policy, terms, support contact, OAuth registrations, test accounts, screenshots, and staged client access.
 - [x] Define a prompt-to-next-action contract that returns exactly one primary action, optional rationale, asset requirements, source grounding, and an authorized platform destination rather than a long task list.
 - [x] Let users manually provide their own community/group URL and optionally save a validated settings/about URL template; never discover, enumerate, or infer private group administration links.
 - [x] Support structured Skoot Pack imports for authorized templates such as a 5-Day Challenge, including the stated group goal, prerequisite assets, expected dimensions, homework, and ordered milestones.
@@ -132,9 +132,9 @@
 - [x] Add a source-date field to manual lesson imports across the schema, database migration, protected API, and import UI.
 - [x] Normalize imported learning sources into explicit lesson concepts, homework items, engagement opportunities, and source-attribution records without fabricating missing content.
 - [x] Surface recommendation citations with an authorized source lesson link in the focus and momentum UI whenever active learning context informs a recommendation.
-- [ ] Add deterministic engagement guidance that recommends an appropriate user-authored homework completion, progress update, focused question, or discussion reply only when the imported source supports it.
-- [ ] Add Vitest coverage for learning-source cross-user isolation, deduplication, deletion/audit behavior, recommendation source attribution, graceful missing-transcript handling, and size limits.
-- [ ] Verify the generated ICO favicon at actual small browser-tab sizes after the next published release.
+- [x] Add deterministic engagement guidance that recommends an appropriate user-authored homework completion, progress update, focused question, or discussion reply only when the imported source supports it.
+- [x] Add Vitest coverage for learning-source cross-user isolation, deduplication, deletion/audit behavior, recommendation source attribution, graceful missing-transcript handling, and size limits.
+- [x] Verify the generated ICO favicon at actual small browser-tab sizes using the live-served 16×16 and 32×32 ICO layers and a native 16-pixel silhouette inspection.
 - [x] Add a client-owned conversation model with explicit consent, user ownership, private-by-default visibility, retention controls, permanent deletion, and export-ready metadata.
 - [x] Keep the first conversation release text-only; defer voice ingestion until the user has approved a separate consent, transcription, retention, and deletion design.
 - [x] Add a clear in-app notice explaining that Skoot summarizes only the signed-in user’s Skootly data and does not post, upload, or change external platforms.
@@ -149,20 +149,20 @@
 - [x] Add pack attribution to student recommendations, including pack name, creator name, version, update date, and applied rule/source reference.
 - [x] Ground students’ one-primary-plus-one-optional Skoots in their goal, current state, progress, outcomes, and assigned approved pack knowledge without turning Skoot into a generic chat interface.
 - [x] Build a concise creator workspace for creating packs, proposing knowledge updates, reviewing versions, assigning students, and seeing current assignments.
-- [ ] Build a minimal creator-insights view that summarizes recurring student bottlenecks, repeated questions, skipped Skoot titles, and stored outcomes without advanced analytics.
-- [ ] Add tests for version immutability, latest approved version resolution, creator/student tenant isolation, pack-attribution persistence, one-to-two-action limits, and outcome linkage.
+- [x] Build a minimal creator-insights view that summarizes recurring student bottlenecks, repeated questions, possible misconceptions, skipped Skoot titles, stored outcomes, and escalation requests without advanced analytics.
+- [x] Add tests for version immutability, active approved version resolution, creator/student tenant isolation, pack-attribution persistence, one-to-two-action limits, and outcome linkage.
 - [x] Explicitly exclude public Pack discovery, marketplace listing, billing, creator payouts, affiliates, royalties, multi-creator editing, complex permissions, and advanced analytics from this release.
 - [x] Reconcile Smart Escalation with the shared Skoot engine so the routing order is Student → assigned Skoot Pack/Skoot → CSM → Main Coach, always choosing the lowest-cost capable path.
 - [x] Add creator or CSM support profiles with only a display name, routing level, optional booking URL, and active state; do not build calendar infrastructure.
 - [x] Add tenant-isolated escalation records that capture student, creator, recommendation/Skoot, escalation type, routing reason, assigned helper, booking URL, lifecycle status, and created/resolved timestamps.
 - [x] Add deterministic escalation rules for persistent or explicitly human-needed bottlenecks, while leaving the ordinary one-primary-plus-one-optional Skoot flow intact when an assigned Pack can help.
 - [x] Present students with a Book Breakdown CTA only when an active, creator-owned booking URL is available; otherwise present a private request-for-help action without inventing an external link.
-- [ ] Add private coach/CSM notification records with short context and deep links to only their authorized escalation view; never notify unrelated users.
+- [x] Add private coach/CSM notification records with short context and deep links to only their authorized escalation view; never notify unrelated users.
 - [x] Generate a private pre-call Breakdown Brief from the student’s owned goal, state, bottleneck, beliefs, prior Skoots/outcomes, applied Pack knowledge, and recommended call focus.
 - [x] Add coach post-call notes/transcript paste with explicit private-data notice and reviewable suggestions for a client’s next Skoots and proposed Creator Pack knowledge.
-- [ ] Require explicit creator approval, edit, or ignore before post-call learning changes any Creator Pack version.
+- [x] Require explicit creator approval, inline editing, or ignore before post-call learning changes any Creator Pack version.
 - [x] Detect only simple recurring, anonymized bottleneck, skipped-action, and escalation-request patterns among assigned students; surface a private Content Skoot recommendation without client names, recordings, screenshots, or public publishing.
-- [ ] Add an explicit separate consent field before a creator can attach identifiable client information to any future content workflow; do not build publishing or social scheduling.
+- [x] Add a separate, revocable student-owned consent record before identifiable client information can be attached to any future content workflow; do not build publishing or social scheduling.
 - [x] Test routing priority, tenant isolation, booking-link allowlisting, private brief access, reviewable proposal creation, identifier redaction, and no-publication boundaries.
 - [x] Explicitly exclude calendar infrastructure, video recording, YouTube publishing, social scheduling, video editing, marketplace/payouts, complex content analytics, and automatic conversion of private material to public content.
 - [x] Add Pack-aware first-run state detection so assigned students see the Pack destination/Point B and a minimal Point A diagnostic instead of the generic goal field.
@@ -173,8 +173,8 @@
 - [x] Extend Creator Pack knowledge with optional transformation/destination and ordered milestone diagnostic prompts without asking students to understand Pack internals.
 - [x] Add a deterministic Smart Escalation route that checks Pack capability, then CSM, then Main Coach based on explicit help request, persistent action attempts, and strategy/diagnosis needs.
 - [x] Add a private student Book Breakdown action using an active authorized support booking URL, and a safe request-for-help state when no booking URL exists.
-- [ ] Add a private Creator/CSM queue with student-authorized breakdown links, pre-call briefs, post-call note capture, reviewable Pack update proposals, and suggested client follow-up Skoot text.
-- [ ] Extend private Creator intelligence with anonymous aggregation of recurring bottlenecks, questions, misconceptions, skipped Skoots, outcomes, and escalation requests.
+- [x] Add a private Creator/assigned-CSM queue with student-authorized breakdown links, pre-call briefs, post-call note capture, reviewable Pack update proposals, and suggested client follow-up Skoot text.
+- [x] Extend private Creator intelligence with anonymous aggregation of recurring bottlenecks, question categories, possible misconceptions, skipped Skoots, outcomes, and escalation requests.
 - [x] Surface private Content Skoot opportunities only from aggregated patterns or a creator-reviewed breakdown, defaulting all references to anonymized language with no publishing action.
-- [ ] Add a separate identifiable-content-consent record requirement for any future use of names, recordings, screenshots, results, or private business information; keep it out of scope for this release.
+- [x] Add a separate identifiable-content-consent record requirement for any future use of names, recordings, screenshots, results, or private business information; keep publishing and identifiable-content workflows out of scope for this release.
 - [x] Produce a copy-ready Manus Agent prompt for a guided first-run UX redesign that leads with outcome, bottleneck, and one decisive Skoot before exposing advanced tools.
