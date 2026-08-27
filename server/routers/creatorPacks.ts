@@ -3,6 +3,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { creatorKnowledgeTypes, proposeCreatorKnowledge } from "../creatorPacks";
 import { acceptCreatorPackInvite, approveCreatorPackProposal, assignCreatorPackStudent, cancelCreatorPackProposal, createCreatorPack, createCreatorPackInvite, createCreatorPackProposal, createGuidedCreatorPack, getCreatorPackBuilder, getCreatorPackInsights, getCreatorPackInvitePreview, getCreatorPackInvites, getCreatorPackOperatingView, getCreatorPacks, getCreatorPackProposals, getMyPackExecution, getMyPackJourney, publishGuidedCreatorPackRevision, recordMyPackExecutionFeedback, revokeCreatorPackInvite, rollEnrollmentToActiveVersion, saveMyPackDiagnosticAnswer } from "../db";
 import { packTemplateKinds, starterPackDraft, validatePackBlueprintDraft } from "../packMvp";
+import { shapePackFromNotes } from "../packAuthoring";
 
 const knowledgeType = z.enum(creatorKnowledgeTypes);
 const templateKind = z.enum(packTemplateKinds);
@@ -42,6 +43,7 @@ export const creatorPacksRouter = router({
   myJourney: protectedProcedure.query(({ ctx }) => getMyPackJourney(ctx.user.id)),
   answerDiagnostic: protectedProcedure.input(z.object({ questionKey: z.string().min(1).max(255), questionText: z.string().min(2).max(2000), answer: z.string().min(1).max(1000) })).mutation(({ ctx, input }) => saveMyPackDiagnosticAnswer(ctx.user.id, input)),
   starterDraft: protectedProcedure.input(z.object({ templateKind })).query(({ input }) => starterPackDraft(input.templateKind)),
+  shapeDraft: protectedProcedure.input(z.object({ templateKind, notes: z.string().trim().min(50).max(6000), confirmedNoPrivateData: z.literal(true) })).mutation(({ input }) => shapePackFromNotes(input)),
   builder: protectedProcedure.input(z.object({ packId: z.number().int().positive() })).query(({ ctx, input }) => getCreatorPackBuilder(ctx.user.id, input.packId)),
   createGuided: protectedProcedure.input(blueprintInput).mutation(({ ctx, input }) => { validatePackBlueprintDraft(input); return createGuidedCreatorPack(ctx.user.id, input); }),
   publishGuided: protectedProcedure.input(z.object({ packId: z.number().int().positive(), draft: blueprintInput })).mutation(({ ctx, input }) => { validatePackBlueprintDraft(input.draft); return publishGuidedCreatorPackRevision(ctx.user.id, input.packId, input.draft); }),

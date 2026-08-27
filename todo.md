@@ -199,3 +199,11 @@
 - [x] Define a deliberate Pack-version rollout policy: new enrollments receive the active version while active students remain on their enrolled version unless the creator explicitly changes their rollout.
 - [x] Apply the migration and add regression tests for opaque invite tokens, expiration behavior, authenticated ownership forwarding, Pack-version approval, action caps, and feedback ownership; database helpers enforce creator/student ownership and token/email matching.
 - [x] Run TypeScript, 79 passing tests with one optional HighLevel live-credential test skipped, production build, and desktop/mobile creator, existing student, login, and unavailable-invite state verification; save and verify the published MVP checkpoint.
+- [x] Audit Pack Builder friction and identify the smallest creator-facing changes that make it easy to convert an existing coaching method into a launch-ready Pack.
+- [x] Add a guided “shape my Pack” intake that converts a coach’s plain-language, non-sensitive method notes into an editable Pack draft with a destination, milestones, Skoots, definition of done, feedback prompts, and Not-Today boundaries.
+- [x] Add a coach-friendly review step that highlights only the decisions requiring attention before immutable version approval and invite creation.
+- [x] Research current ChatGPT app/connector submission, OAuth, privacy, metadata, testing, and review requirements from official OpenAI documentation.
+- [x] Define a submission-ready “Manage Client Success Through Chat” integration scope with least-privilege OAuth, client-success read tools, confirmed write contracts, tenant isolation, and no background data access.
+- [x] Create the MCP-compatible read-only tool contract, data-minimization requirements, user-facing setup copy, test plan, and store-listing draft required for a future ChatGPT app submission.
+- [x] Implement and verify the Pack Builder usability changes with TypeScript, 81 passing tests, a production build, and managed-project visual review; managed publishing can proceed while personal browser control remains paused.
+- [ ] Keep control of the user’s browser paused until the user explicitly asks to resume it; use project files and public-source retrieval for this work.

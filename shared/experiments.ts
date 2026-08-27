@@ -68,7 +68,7 @@ export const EXPERIMENTS: Record<ExperimentVersion, ExperimentConfig> = {
     version: "client_success",
     route: "/client-success",
     eyebrow: "For client success teams",
-    positioning: "Know which client needs you next.",
+    positioning: "Manage Client Success Through Chat.",
     audience: "Client success managers, agencies, coaching companies, and education teams.",
     promise: "Prioritize the client whose stalled progress or risk most needs a human intervention.",
     goalLabel: "What client outcome are you protecting?",
