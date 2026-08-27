@@ -206,4 +206,4 @@
 - [x] Define a submission-ready “Manage Client Success Through Chat” integration scope with least-privilege OAuth, client-success read tools, confirmed write contracts, tenant isolation, and no background data access.
 - [x] Create the MCP-compatible read-only tool contract, data-minimization requirements, user-facing setup copy, test plan, and store-listing draft required for a future ChatGPT app submission.
 - [x] Implement and verify the Pack Builder usability changes with TypeScript, 81 passing tests, a production build, and managed-project visual review; managed publishing can proceed while personal browser control remains paused.
-- [ ] Keep control of the user’s browser paused until the user explicitly asks to resume it; use project files and public-source retrieval for this work.
+- [x] Keep control of the user’s browser paused for this release work; no personal-browser navigation was performed after the pause request, and future browser control still requires explicit user resumption.
