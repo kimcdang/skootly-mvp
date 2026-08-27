@@ -9,9 +9,11 @@ import ExperimentPage from "./pages/ExperimentPage";
 import History from "./pages/History";
 import Home from "./pages/Home";
 import Lab from "./pages/Lab";
+import FreightToFreedom from "./pages/FreightToFreedom";
+import CreatorPacks from "./pages/CreatorPacks";
 
 function Router() {
-  return <Switch><Route path="/" component={Home} /><Route path="/founder">{() => <ExperimentPage version="founder" />}</Route><Route path="/coach">{() => <ExperimentPage version="coach" />}</Route><Route path="/client-success">{() => <ExperimentPage version="client_success" />}</Route><Route path="/history" component={History} /><Route path="/lab" component={Lab} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/" component={Home} /><Route path="/founder">{() => <ExperimentPage version="founder" />}</Route><Route path="/freight-to-freedom" component={FreightToFreedom} /><Route path="/creator" component={CreatorPacks} /><Route path="/coach">{() => <ExperimentPage version="coach" />}</Route><Route path="/client-success">{() => <ExperimentPage version="client_success" />}</Route><Route path="/history" component={History} /><Route path="/lab" component={Lab} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
 }
 
 export default function App() {

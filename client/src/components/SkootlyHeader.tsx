@@ -28,6 +28,7 @@ export function SkootlyHeader({ compact = false }: { compact?: boolean }) {
           <>
             <button className="nav-link" onClick={() => setLocation("/founder")}>Today</button>
             <button className="nav-link nav-link--desktop" onClick={() => setLocation("/history")}>Momentum</button>
+            <button className="nav-link nav-link--desktop" onClick={() => setLocation("/creator")}>Creator</button>
             {user.role === "admin" ? (
               <button className="nav-link nav-link--desktop" onClick={() => setLocation("/lab")}>Lab</button>
             ) : null}

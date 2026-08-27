@@ -162,3 +162,21 @@ export async function fetchHighLevelSnapshot(options: HighLevelOptions = {}) {
 
   return normalizeHighLevelSnapshot(contacts, opportunities, pipelines, locationId, now);
 }
+
+export async function fetchHighLevelActionPayloads(options: HighLevelOptions = {}) {
+  const token = options.token ?? process.env.GHL_PRIVATE_INTEGRATION_TOKEN;
+  const locationId = options.locationId ?? process.env.GHL_LOCATION_ID;
+  if (!token || !locationId) throw new Error("GoHighLevel is not configured. Connect an account before generating actions.");
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const encodedLocation = encodeURIComponent(locationId);
+  const [contactsResponse, opportunitiesResponse] = await Promise.all([
+    fetchImpl(`${HIGHLEVEL_BASE_URL}/contacts/?locationId=${encodedLocation}&limit=100`, { method: "GET", headers: highLevelHeaders(token, "2021-07-28") }),
+    fetchImpl(`${HIGHLEVEL_BASE_URL}/opportunities/search`, {
+      method: "POST",
+      headers: highLevelHeaders(token),
+      body: JSON.stringify({ locationId, query: "", limit: 100, page: 0, searchAfter: [], additionalDetails: { notes: false, tasks: false, calendarEvents: false, unReadConversations: false } }),
+    }),
+  ]);
+  const [contacts, opportunities] = await Promise.all([readJson(contactsResponse, "contacts"), readJson(opportunitiesResponse, "opportunities")]);
+  return { contacts, opportunities };
+}

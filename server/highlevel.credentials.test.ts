@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { highLevelHeaders } from "./highlevel";
 
 describe("GoHighLevel supplied credentials", () => {
-  it(
+  const liveIt = process.env.RUN_LIVE_GHL_TESTS === "true" ? it : it.skip;
+  liveIt(
     "authenticates a lightweight read-only pipelines request for the configured location",
     async () => {
       const token = process.env.GHL_PRIVATE_INTEGRATION_TOKEN;

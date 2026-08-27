@@ -504,6 +504,252 @@ export const skootConversationMessages = mysqlTable(
   ],
 );
 
+/** Compact business memory for deterministic action generation. One profile belongs to one signed-in owner. */
+export const businessProfiles = mysqlTable(
+  "business_profiles",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    companyName: varchar("companyName", { length: 300 }).notNull(),
+    primaryGoal: text("primaryGoal").notNull(),
+    monthlyRevenueGoal: decimal("monthlyRevenueGoal", { precision: 14, scale: 2 }),
+    primaryOffer: varchar("primaryOffer", { length: 400 }),
+    offerPrice: decimal("offerPrice", { precision: 14, scale: 2 }),
+    primaryAcquisitionMethod: varchar("primaryAcquisitionMethod", { length: 400 }),
+    importantNotes: text("importantNotes"),
+    currentBottleneck: text("currentBottleneck"),
+    defaultPlaybookId: varchar("defaultPlaybookId", { length: 120 }).default("core_revenue_focus").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("business_profiles_user_unique").on(table.userId)],
+);
+
+/** Persisted action-engine output. This remains separate from daily Skoots so a CRM signal does not require a check-in. */
+export const businessActions = mysqlTable(
+  "business_actions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    businessProfileId: int("businessProfileId").notNull().references(() => businessProfiles.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 700 }).notNull(),
+    description: text("description").notNull(),
+    priorityScore: int("priorityScore").notNull(),
+    source: mysqlEnum("source", ["highlevel", "manual", "playbook"]).notNull(),
+    signal: text("signal").notNull(),
+    recommendedAction: text("recommendedAction").notNull(),
+    estimatedValue: decimal("estimatedValue", { precision: 14, scale: 2 }),
+    assignedTo: varchar("assignedTo", { length: 240 }),
+    relatedContactIds: text("relatedContactIds"),
+    relatedContactUrls: text("relatedContactUrls"),
+    status: mysqlEnum("status", ["recommended", "in_progress", "completed", "dismissed"]).default("recommended").notNull(),
+    playbookId: varchar("playbookId", { length: 120 }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    completedAt: bigint("completedAt", { mode: "number" }),
+    dismissedAt: bigint("dismissedAt", { mode: "number" }),
+  },
+  table => [
+    index("business_actions_owner_status_idx").on(table.userId, table.status),
+    index("business_actions_profile_score_idx").on(table.businessProfileId, table.priorityScore),
+  ],
+);
+
+/** Detailed result record for signal → action → outcome learning data, without performing automatic optimization. */
+export const businessActionOutcomes = mysqlTable(
+  "business_action_outcomes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    actionId: int("actionId").notNull().references(() => businessActions.id, { onDelete: "cascade" }),
+    contactsContacted: int("contactsContacted").default(0).notNull(),
+    replies: int("replies").default(0).notNull(),
+    bookings: int("bookings").default(0).notNull(),
+    purchases: int("purchases").default(0).notNull(),
+    outcomeValue: decimal("outcomeValue", { precision: 14, scale: 2 }),
+    notes: text("notes"),
+    learningNote: text("learningNote"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [index("business_action_outcomes_owner_idx").on(table.userId, table.createdAt)],
+);
+
+/** A creator-owned distributed knowledge pack. Personal prompt packs remain separate. */
+export const creatorSkootPacks = mysqlTable(
+  "creator_skoot_packs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 300 }).notNull(),
+    description: text("description"),
+    activeVersionId: int("activeVersionId"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [index("creator_skoot_packs_owner_idx").on(table.creatorUserId, table.updatedAt)],
+);
+
+/** Immutable, approved snapshot. New knowledge always produces a new version rather than rewriting history. */
+export const creatorPackVersions = mysqlTable(
+  "creator_pack_versions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    versionNumber: int("versionNumber").notNull(),
+    changeSummary: text("changeSummary").notNull(),
+    approvedAt: bigint("approvedAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("creator_pack_versions_unique").on(table.packId, table.versionNumber), index("creator_pack_versions_owner_idx").on(table.creatorUserId, table.approvedAt)],
+);
+
+export const creatorPackKnowledge = mysqlTable(
+  "creator_pack_knowledge",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    versionId: int("versionId").notNull().references(() => creatorPackVersions.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    knowledgeType: mysqlEnum("knowledgeType", ["principle", "framework", "diagnostic_rule", "decision_rule", "milestone", "skoot_action", "script", "not_today", "example"]).notNull(),
+    content: text("content").notNull(),
+    sourceText: text("sourceText"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [index("creator_pack_knowledge_version_idx").on(table.versionId, table.knowledgeType)],
+);
+
+export const creatorPackProposals = mysqlTable(
+  "creator_pack_proposals",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    sourceText: text("sourceText").notNull(),
+    proposedType: mysqlEnum("proposedType", ["principle", "framework", "diagnostic_rule", "decision_rule", "milestone", "skoot_action", "script", "not_today", "example"]).notNull(),
+    proposedContent: text("proposedContent").notNull(),
+    status: mysqlEnum("status", ["pending", "approved", "cancelled"]).default("pending").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    resolvedAt: bigint("resolvedAt", { mode: "number" }),
+  },
+  table => [index("creator_pack_proposals_owner_idx").on(table.creatorUserId, table.status)],
+);
+
+export const creatorPackAssignments = mysqlTable(
+  "creator_pack_assignments",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    studentUserId: int("studentUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    assignedAt: bigint("assignedAt", { mode: "number" }).notNull(),
+    revokedAt: bigint("revokedAt", { mode: "number" }),
+  },
+  table => [uniqueIndex("creator_pack_assignment_unique").on(table.packId, table.studentUserId), index("creator_pack_assignments_student_idx").on(table.studentUserId, table.revokedAt)],
+);
+
+/** Student-owned answers used only to locate Point A within an assigned Pack. */
+export const creatorPackDiagnosticAnswers = mysqlTable(
+  "creator_pack_diagnostic_answers",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    studentUserId: int("studentUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    questionKey: varchar("questionKey", { length: 255 }).notNull(),
+    questionText: text("questionText").notNull(),
+    answer: text("answer").notNull(),
+    source: mysqlEnum("source", ["student", "inferred"]).default("student").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("pack_diag_answer_unique").on(table.packId, table.studentUserId, table.questionKey), index("pack_diag_student_idx").on(table.studentUserId, table.packId, table.updatedAt)],
+);
+
+export const creatorPackAttributions = mysqlTable(
+  "creator_pack_attributions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    studentUserId: int("studentUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    packId: int("packId").notNull().references(() => creatorSkootPacks.id, { onDelete: "cascade" }),
+    packVersionId: int("packVersionId").notNull().references(() => creatorPackVersions.id, { onDelete: "cascade" }),
+    knowledgeId: int("knowledgeId").references(() => creatorPackKnowledge.id, { onDelete: "set null" }),
+    recommendationId: int("recommendationId").references(() => recommendations.id, { onDelete: "set null" }),
+    skootId: int("skootId").references(() => skoots.id, { onDelete: "set null" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [index("creator_pack_attr_student_idx").on(table.studentUserId, table.createdAt), index("creator_pack_attr_creator_idx").on(table.creatorUserId, table.createdAt)],
+);
+
+export const supportProfiles = mysqlTable(
+  "support_profiles",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    userId: int("userId").references(() => users.id, { onDelete: "set null" }),
+    routingLevel: mysqlEnum("routingLevel", ["csm", "coach"]).notNull(),
+    displayName: varchar("displayName", { length: 300 }).notNull(),
+    bookingUrl: varchar("bookingUrl", { length: 2048 }),
+    active: boolean("active").default(true).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [index("support_profiles_creator_idx").on(table.creatorUserId, table.routingLevel, table.active)],
+);
+
+export const smartEscalations = mysqlTable(
+  "smart_escalations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    studentUserId: int("studentUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    supportProfileId: int("supportProfileId").references(() => supportProfiles.id, { onDelete: "set null" }),
+    relatedSkootId: int("relatedSkootId").references(() => skoots.id, { onDelete: "set null" }),
+    relatedRecommendationId: int("relatedRecommendationId").references(() => recommendations.id, { onDelete: "set null" }),
+    packId: int("packId").references(() => creatorSkootPacks.id, { onDelete: "set null" }),
+    escalationType: mysqlEnum("escalationType", ["csm", "coach"]).notNull(),
+    routingReason: text("routingReason").notNull(),
+    bookingUrl: varchar("bookingUrl", { length: 2048 }),
+    status: mysqlEnum("status", ["requested", "booked", "completed", "declined"]).default("requested").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    resolvedAt: bigint("resolvedAt", { mode: "number" }),
+  },
+  table => [index("smart_escalations_student_idx").on(table.studentUserId, table.status, table.createdAt), index("smart_escalations_creator_idx").on(table.creatorUserId, table.status, table.createdAt)],
+);
+
+export const breakdownNotes = mysqlTable(
+  "breakdown_notes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    escalationId: int("escalationId").notNull().references(() => smartEscalations.id, { onDelete: "cascade" }),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    authorUserId: int("authorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    notes: text("notes").notNull(),
+    clientNextAction: text("clientNextAction"),
+    proposedKnowledgeType: mysqlEnum("proposedKnowledgeType", ["principle", "framework", "diagnostic_rule", "decision_rule", "milestone", "skoot_action", "script", "not_today", "example"]),
+    proposedKnowledgeContent: text("proposedKnowledgeContent"),
+    reviewStatus: mysqlEnum("reviewStatus", ["pending", "added", "ignored"]).default("pending").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [index("breakdown_notes_escalation_idx").on(table.escalationId, table.createdAt)],
+);
+
+export const contentSkoots = mysqlTable(
+  "content_skoots",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    creatorUserId: int("creatorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    bottleneckLabel: varchar("bottleneckLabel", { length: 1000 }).notNull(),
+    occurrenceCount: int("occurrenceCount").notNull(),
+    title: varchar("title", { length: 1000 }).notNull(),
+    format: varchar("format", { length: 300 }).notNull(),
+    outline: text("outline").notNull(),
+    identifiableConsent: boolean("identifiableConsent").default(false).notNull(),
+    status: mysqlEnum("status", ["suggested", "accepted", "dismissed"]).default("suggested").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [index("content_skoots_creator_idx").on(table.creatorUserId, table.status, table.createdAt)],
+);
+
 export type HighLevelConnection = typeof highLevelConnections.$inferSelect;
 export type HighLevelOAuthState = typeof highLevelOAuthStates.$inferSelect;
 export type LearningSource = typeof learningSources.$inferSelect;
@@ -513,3 +759,12 @@ export type SkootPack = typeof skootPacks.$inferSelect;
 export type SkootPackStep = typeof skootPackSteps.$inferSelect;
 export type SkootConversation = typeof skootConversations.$inferSelect;
 export type SkootConversationMessage = typeof skootConversationMessages.$inferSelect;
+export type BusinessProfile = typeof businessProfiles.$inferSelect;
+export type BusinessAction = typeof businessActions.$inferSelect;
+export type BusinessActionOutcome = typeof businessActionOutcomes.$inferSelect;
+export type CreatorSkootPack = typeof creatorSkootPacks.$inferSelect;
+export type CreatorPackVersion = typeof creatorPackVersions.$inferSelect;
+export type CreatorPackKnowledge = typeof creatorPackKnowledge.$inferSelect;
+export type CreatorPackDiagnosticAnswer = typeof creatorPackDiagnosticAnswers.$inferSelect;
+export type SupportProfile = typeof supportProfiles.$inferSelect;
+export type SmartEscalation = typeof smartEscalations.$inferSelect;

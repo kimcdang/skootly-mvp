@@ -2,6 +2,17 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   dailyCheckins,
+  businessActionOutcomes,
+  businessActions,
+  businessProfiles,
+  breakdownNotes,
+  contentSkoots,
+  creatorPackAssignments,
+  creatorPackDiagnosticAnswers,
+  creatorPackKnowledge,
+  creatorPackProposals,
+  creatorPackVersions,
+  creatorSkootPacks,
   experimentEvents,
   groupContexts,
   InsertUser,
@@ -16,12 +27,17 @@ import {
   skootConversations,
   skootOutcomes,
   skoots,
+  smartEscalations,
+  supportProfiles,
   users,
   validationFeedback,
 } from "../drizzle/schema";
 import type { ExperimentVersion } from "../shared/experiments";
 import type { DailyCheckinInput, RecommendationOutput } from "../shared/skootly";
 import { ENV } from "./_core/env";
+import type { GeneratedBusinessAction } from "./actionEngine";
+import { deriveNextPackDiagnosticQuestion, type CreatorKnowledgeType } from "./creatorPacks";
+import { anonymizedContentSuggestion } from "./escalations";
 import {
   buildLearningContext,
   deriveLearningConcepts,
@@ -801,6 +817,268 @@ export async function getSkootPacks(userId: number) {
   }));
 }
 
+function decodeAction(action: typeof businessActions.$inferSelect) {
+  return {
+    ...action,
+    relatedContactIds: action.relatedContactIds ? JSON.parse(action.relatedContactIds) as string[] : [],
+    relatedContactUrls: action.relatedContactUrls ? JSON.parse(action.relatedContactUrls) as string[] : [],
+  };
+}
+
+export async function getBusinessProfile(userId: number) {
+  const db = await requireDb();
+  return (await db.select().from(businessProfiles).where(eq(businessProfiles.userId, userId)).limit(1))[0] ?? null;
+}
+
+export async function upsertBusinessProfile(userId: number, input: {
+  companyName: string; primaryGoal: string; monthlyRevenueGoal?: number; primaryOffer?: string; offerPrice?: number;
+  primaryAcquisitionMethod?: string; importantNotes?: string; currentBottleneck?: string; defaultPlaybookId?: string;
+}) {
+  const db = await requireDb();
+  const now = Date.now();
+  const values = {
+    companyName: input.companyName,
+    primaryGoal: input.primaryGoal,
+    monthlyRevenueGoal: input.monthlyRevenueGoal !== undefined ? String(input.monthlyRevenueGoal) : null,
+    primaryOffer: input.primaryOffer || null,
+    offerPrice: input.offerPrice !== undefined ? String(input.offerPrice) : null,
+    primaryAcquisitionMethod: input.primaryAcquisitionMethod || null,
+    importantNotes: input.importantNotes || null,
+    currentBottleneck: input.currentBottleneck || null,
+    defaultPlaybookId: input.defaultPlaybookId || "core_revenue_focus",
+    updatedAt: now,
+  };
+  const existing = await getBusinessProfile(userId);
+  if (existing) {
+    await db.update(businessProfiles).set(values).where(and(eq(businessProfiles.id, existing.id), eq(businessProfiles.userId, userId)));
+    return { ...existing, ...values };
+  }
+  const [created] = await db.insert(businessProfiles).values({ userId, ...values, createdAt: now }).$returningId();
+  return (await db.select().from(businessProfiles).where(eq(businessProfiles.id, created.id)).limit(1))[0];
+}
+
+export async function getOpenBusinessActions(userId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(businessActions)
+    .where(and(eq(businessActions.userId, userId), inArray(businessActions.status, ["recommended", "in_progress"])))
+    .orderBy(desc(businessActions.priorityScore), desc(businessActions.createdAt)).limit(2);
+  return rows.map(decodeAction);
+}
+
+export async function getBusinessActionById(userId: number, actionId: number) {
+  const db = await requireDb();
+  const action = (await db.select().from(businessActions).where(and(eq(businessActions.id, actionId), eq(businessActions.userId, userId))).limit(1))[0];
+  if (!action) throw new Error("Action not found.");
+  const outcomes = await db.select().from(businessActionOutcomes).where(and(eq(businessActionOutcomes.actionId, actionId), eq(businessActionOutcomes.userId, userId))).orderBy(desc(businessActionOutcomes.createdAt));
+  return { action: decodeAction(action), outcomes };
+}
+
+export async function createBusinessActions(userId: number, businessProfileId: number, candidates: GeneratedBusinessAction[], playbookId?: string) {
+  const db = await requireDb();
+  const now = Date.now();
+  if (!candidates.length) return [];
+  const [profile] = await db.select({ id: businessProfiles.id }).from(businessProfiles).where(and(eq(businessProfiles.id, businessProfileId), eq(businessProfiles.userId, userId))).limit(1);
+  if (!profile) throw new Error("Business profile not found.");
+  await db.insert(businessActions).values(candidates.slice(0, 2).map(candidate => ({
+    userId,
+    businessProfileId,
+    title: candidate.title,
+    description: candidate.description,
+    priorityScore: candidate.priorityScore,
+    source: "highlevel" as const,
+    signal: candidate.signal,
+    recommendedAction: candidate.recommendedAction,
+    estimatedValue: candidate.estimatedValue ? String(candidate.estimatedValue) : null,
+    relatedContactIds: candidate.contactIds.length ? JSON.stringify(candidate.contactIds) : null,
+    relatedContactUrls: candidate.contactUrls.length ? JSON.stringify(candidate.contactUrls) : null,
+    playbookId: playbookId || null,
+    createdAt: now,
+  })));
+  return getOpenBusinessActions(userId);
+}
+
+export async function updateBusinessActionStatus(userId: number, actionId: number, status: "recommended" | "in_progress" | "completed" | "dismissed") {
+  const db = await requireDb();
+  const current = (await db.select().from(businessActions).where(and(eq(businessActions.id, actionId), eq(businessActions.userId, userId))).limit(1))[0];
+  if (!current) throw new Error("Action not found.");
+  const allowed: Record<typeof current.status, readonly typeof current.status[]> = {
+    recommended: ["recommended", "in_progress", "completed", "dismissed"],
+    in_progress: ["in_progress", "completed", "dismissed"],
+    completed: ["completed"],
+    dismissed: ["dismissed"],
+  };
+  if (!allowed[current.status].includes(status)) throw new Error("This action cannot be moved back after it is closed.");
+  const now = Date.now();
+  await db.update(businessActions).set({ status, completedAt: status === "completed" ? now : current.completedAt, dismissedAt: status === "dismissed" ? now : current.dismissedAt }).where(and(eq(businessActions.id, actionId), eq(businessActions.userId, userId)));
+  return { success: true, status };
+}
+
+export async function recordBusinessActionOutcome(userId: number, input: {
+  actionId: number; contactsContacted: number; replies: number; bookings: number; purchases: number; outcomeValue?: number; notes?: string; learningNote?: string;
+}) {
+  const db = await requireDb();
+  const action = (await db.select({ id: businessActions.id }).from(businessActions).where(and(eq(businessActions.id, input.actionId), eq(businessActions.userId, userId))).limit(1))[0];
+  if (!action) throw new Error("Action not found.");
+  const now = Date.now();
+  await db.transaction(async tx => {
+    await tx.insert(businessActionOutcomes).values({ userId, actionId: input.actionId, contactsContacted: input.contactsContacted, replies: input.replies, bookings: input.bookings, purchases: input.purchases, outcomeValue: input.outcomeValue !== undefined ? String(input.outcomeValue) : null, notes: input.notes || null, learningNote: input.learningNote || null, createdAt: now });
+    await tx.update(businessActions).set({ status: "completed", completedAt: now }).where(and(eq(businessActions.id, input.actionId), eq(businessActions.userId, userId)));
+  });
+  return { success: true };
+}
+
+export async function getBusinessSnapshot(userId: number) {
+  const db = await requireDb();
+  const [profile, actions, wins] = await Promise.all([
+    getBusinessProfile(userId),
+    getOpenBusinessActions(userId),
+    db.select().from(businessActionOutcomes).where(eq(businessActionOutcomes.userId, userId)).orderBy(desc(businessActionOutcomes.createdAt)).limit(3),
+  ]);
+  return { profile, actions, recentWins: wins };
+}
+
+export async function getCreatorPacks(creatorUserId: number) {
+  const db = await requireDb();
+  const packs = await db.select().from(creatorSkootPacks).where(eq(creatorSkootPacks.creatorUserId, creatorUserId)).orderBy(desc(creatorSkootPacks.updatedAt));
+  const result = [] as Array<(typeof packs)[number] & { activeVersion: typeof creatorPackVersions.$inferSelect | null; assignments: Array<{ id: number; studentUserId: number; email: string | null; name: string | null }> }>;
+  for (const pack of packs) {
+    const activeVersion = pack.activeVersionId ? (await db.select().from(creatorPackVersions).where(eq(creatorPackVersions.id, pack.activeVersionId)).limit(1))[0] ?? null : null;
+    const assignments = await db.select({ id: creatorPackAssignments.id, studentUserId: creatorPackAssignments.studentUserId, email: users.email, name: users.name }).from(creatorPackAssignments).innerJoin(users, eq(creatorPackAssignments.studentUserId, users.id)).where(and(eq(creatorPackAssignments.packId, pack.id), isNull(creatorPackAssignments.revokedAt)));
+    result.push({ ...pack, activeVersion, assignments });
+  }
+  return result;
+}
+
+async function getOwnedCreatorPack(creatorUserId: number, packId: number) {
+  const db = await requireDb();
+  const pack = (await db.select().from(creatorSkootPacks).where(and(eq(creatorSkootPacks.id, packId), eq(creatorSkootPacks.creatorUserId, creatorUserId))).limit(1))[0];
+  if (!pack) throw new Error("Creator Pack not found.");
+  return pack;
+}
+
+export async function createCreatorPack(creatorUserId: number, input: { name: string; description?: string }) {
+  const db = await requireDb();
+  const now = Date.now();
+  return db.transaction(async tx => {
+    const [packId] = await tx.insert(creatorSkootPacks).values({ creatorUserId, name: input.name, description: input.description || null, createdAt: now, updatedAt: now }).$returningId();
+    const [versionId] = await tx.insert(creatorPackVersions).values({ packId: packId.id, creatorUserId, versionNumber: 1, changeSummary: "Pack created", approvedAt: now }).$returningId();
+    await tx.update(creatorSkootPacks).set({ activeVersionId: versionId.id, updatedAt: now }).where(eq(creatorSkootPacks.id, packId.id));
+    return { packId: packId.id, versionId: versionId.id };
+  });
+}
+
+export async function getCreatorPackProposals(creatorUserId: number, packId: number) {
+  await getOwnedCreatorPack(creatorUserId, packId);
+  const db = await requireDb();
+  return db.select().from(creatorPackProposals).where(and(eq(creatorPackProposals.packId, packId), eq(creatorPackProposals.creatorUserId, creatorUserId), eq(creatorPackProposals.status, "pending"))).orderBy(desc(creatorPackProposals.createdAt));
+}
+
+export async function createCreatorPackProposal(creatorUserId: number, packId: number, sourceText: string, proposal: { proposedType: CreatorKnowledgeType; proposedContent: string }) {
+  await getOwnedCreatorPack(creatorUserId, packId);
+  const db = await requireDb();
+  const [created] = await db.insert(creatorPackProposals).values({ packId, creatorUserId, sourceText, proposedType: proposal.proposedType, proposedContent: proposal.proposedContent, createdAt: Date.now() }).$returningId();
+  return { proposalId: created.id, ...proposal };
+}
+
+export async function approveCreatorPackProposal(creatorUserId: number, input: { proposalId: number; content?: string; knowledgeType?: CreatorKnowledgeType }) {
+  const db = await requireDb();
+  const proposal = (await db.select().from(creatorPackProposals).where(and(eq(creatorPackProposals.id, input.proposalId), eq(creatorPackProposals.creatorUserId, creatorUserId), eq(creatorPackProposals.status, "pending"))).limit(1))[0];
+  if (!proposal) throw new Error("Pending proposal not found.");
+  const pack = await getOwnedCreatorPack(creatorUserId, proposal.packId);
+  const now = Date.now();
+  return db.transaction(async tx => {
+    const latest = (await tx.select().from(creatorPackVersions).where(eq(creatorPackVersions.packId, pack.id)).orderBy(desc(creatorPackVersions.versionNumber)).limit(1))[0];
+    const nextNumber = (latest?.versionNumber ?? 0) + 1;
+    const [version] = await tx.insert(creatorPackVersions).values({ packId: pack.id, creatorUserId, versionNumber: nextNumber, changeSummary: input.content || proposal.proposedContent, approvedAt: now }).$returningId();
+    if (pack.activeVersionId) {
+      const existingKnowledge = await tx.select().from(creatorPackKnowledge).where(eq(creatorPackKnowledge.versionId, pack.activeVersionId));
+      if (existingKnowledge.length) await tx.insert(creatorPackKnowledge).values(existingKnowledge.map(item => ({ packId: pack.id, versionId: version.id, creatorUserId, knowledgeType: item.knowledgeType, content: item.content, sourceText: item.sourceText, createdAt: now })));
+    }
+    await tx.insert(creatorPackKnowledge).values({ packId: pack.id, versionId: version.id, creatorUserId, knowledgeType: input.knowledgeType || proposal.proposedType, content: input.content || proposal.proposedContent, sourceText: proposal.sourceText, createdAt: now });
+    await tx.update(creatorSkootPacks).set({ activeVersionId: version.id, updatedAt: now }).where(and(eq(creatorSkootPacks.id, pack.id), eq(creatorSkootPacks.creatorUserId, creatorUserId)));
+    await tx.update(creatorPackProposals).set({ status: "approved", resolvedAt: now }).where(and(eq(creatorPackProposals.id, proposal.id), eq(creatorPackProposals.creatorUserId, creatorUserId)));
+    return { versionId: version.id, versionNumber: nextNumber };
+  });
+}
+
+export async function cancelCreatorPackProposal(creatorUserId: number, proposalId: number) {
+  const db = await requireDb();
+  const result = await db.update(creatorPackProposals).set({ status: "cancelled", resolvedAt: Date.now() }).where(and(eq(creatorPackProposals.id, proposalId), eq(creatorPackProposals.creatorUserId, creatorUserId), eq(creatorPackProposals.status, "pending")));
+  if (!result[0]?.affectedRows) throw new Error("Pending proposal not found.");
+  return { success: true };
+}
+
+export async function assignCreatorPackStudent(creatorUserId: number, packId: number, studentEmail: string) {
+  await getOwnedCreatorPack(creatorUserId, packId);
+  const db = await requireDb();
+  const student = (await db.select().from(users).where(eq(users.email, studentEmail.trim().toLowerCase())).limit(1))[0];
+  if (!student) throw new Error("No Skootly user with that email exists yet.");
+  if (student.id === creatorUserId) throw new Error("Assign this pack to a student, not yourself.");
+  const now = Date.now();
+  const existing = (await db.select().from(creatorPackAssignments).where(and(eq(creatorPackAssignments.packId, packId), eq(creatorPackAssignments.studentUserId, student.id))).limit(1))[0];
+  if (existing) await db.update(creatorPackAssignments).set({ revokedAt: null, assignedAt: now }).where(eq(creatorPackAssignments.id, existing.id));
+  else await db.insert(creatorPackAssignments).values({ packId, creatorUserId, studentUserId: student.id, assignedAt: now });
+  return { student: { id: student.id, email: student.email, name: student.name } };
+}
+
+export async function getAssignedCreatorPackContext(studentUserId: number) {
+  const db = await requireDb();
+  const assignment = (await db.select({ packId: creatorPackAssignments.packId, creatorUserId: creatorPackAssignments.creatorUserId, packName: creatorSkootPacks.name, packDescription: creatorSkootPacks.description, activeVersionId: creatorSkootPacks.activeVersionId, creatorName: users.name }).from(creatorPackAssignments).innerJoin(creatorSkootPacks, eq(creatorPackAssignments.packId, creatorSkootPacks.id)).innerJoin(users, eq(creatorPackAssignments.creatorUserId, users.id)).where(and(eq(creatorPackAssignments.studentUserId, studentUserId), isNull(creatorPackAssignments.revokedAt))).limit(1))[0];
+  if (!assignment?.activeVersionId) return null;
+  const version = (await db.select().from(creatorPackVersions).where(and(eq(creatorPackVersions.id, assignment.activeVersionId), eq(creatorPackVersions.packId, assignment.packId))).limit(1))[0];
+  if (!version) return null;
+  const knowledge = await db.select().from(creatorPackKnowledge).where(and(eq(creatorPackKnowledge.packId, assignment.packId), eq(creatorPackKnowledge.versionId, version.id), eq(creatorPackKnowledge.creatorUserId, assignment.creatorUserId))).orderBy(creatorPackKnowledge.id);
+  return { ...assignment, version, knowledge };
+}
+
+export async function getMyPackJourney(studentUserId: number) {
+  const assigned = await getAssignedCreatorPackContext(studentUserId);
+  if (!assigned) return null;
+  const db = await requireDb();
+  const answers = await db.select().from(creatorPackDiagnosticAnswers).where(and(eq(creatorPackDiagnosticAnswers.packId, assigned.packId), eq(creatorPackDiagnosticAnswers.studentUserId, studentUserId))).orderBy(creatorPackDiagnosticAnswers.updatedAt);
+  const question = deriveNextPackDiagnosticQuestion(assigned.knowledge, answers.map(item => item.questionKey));
+  const milestones = assigned.knowledge.filter(item => item.knowledgeType === "milestone");
+  const currentMilestone = Math.min(answers.length + 1, Math.max(milestones.length, 1));
+  return {
+    destination: assigned.packDescription || assigned.packName,
+    creatorName: assigned.creatorName || "Your creator",
+    packName: assigned.packName,
+    packId: assigned.packId,
+    versionNumber: assigned.version.versionNumber,
+    updatedAt: assigned.version.approvedAt,
+    currentMilestone,
+    milestoneCount: Math.max(milestones.length, 1),
+    answers,
+    nextQuestion: question,
+  };
+}
+
+export async function saveMyPackDiagnosticAnswer(studentUserId: number, input: { questionKey: string; questionText: string; answer: string }) {
+  const assigned = await getAssignedCreatorPackContext(studentUserId);
+  if (!assigned) throw new Error("No active Creator Pack is assigned.");
+  const validQuestion = deriveNextPackDiagnosticQuestion(assigned.knowledge, []);
+  if (!validQuestion || validQuestion.key !== input.questionKey || validQuestion.text !== input.questionText) throw new Error("This Pack question is no longer current.");
+  const db = await requireDb(); const now = Date.now();
+  const existing = (await db.select({ id: creatorPackDiagnosticAnswers.id }).from(creatorPackDiagnosticAnswers).where(and(eq(creatorPackDiagnosticAnswers.packId, assigned.packId), eq(creatorPackDiagnosticAnswers.studentUserId, studentUserId), eq(creatorPackDiagnosticAnswers.questionKey, input.questionKey))).limit(1))[0];
+  if (existing) await db.update(creatorPackDiagnosticAnswers).set({ answer: input.answer, source: "student", updatedAt: now }).where(and(eq(creatorPackDiagnosticAnswers.id, existing.id), eq(creatorPackDiagnosticAnswers.studentUserId, studentUserId)));
+  else await db.insert(creatorPackDiagnosticAnswers).values({ packId: assigned.packId, creatorUserId: assigned.creatorUserId, studentUserId, questionKey: input.questionKey, questionText: input.questionText, answer: input.answer, source: "student", createdAt: now, updatedAt: now });
+  return getMyPackJourney(studentUserId);
+}
+
+export async function getCreatorPackInsights(creatorUserId: number) {
+  const db = await requireDb();
+  const assignments = await db.select({ studentUserId: creatorPackAssignments.studentUserId }).from(creatorPackAssignments).where(and(eq(creatorPackAssignments.creatorUserId, creatorUserId), isNull(creatorPackAssignments.revokedAt)));
+  const studentIds = assignments.map(item => item.studentUserId).filter((id, index, values) => values.indexOf(id) === index);
+  if (!studentIds.length) return { assignedStudents: 0, bottlenecks: [], skippedSkoots: [], recentOutcomes: [] };
+  const [checkins, skipped, outcomes] = await Promise.all([
+    db.select({ blocker: dailyCheckins.blocker }).from(dailyCheckins).where(inArray(dailyCheckins.userId, studentIds)).orderBy(desc(dailyCheckins.createdAt)).limit(100),
+    db.select({ title: skoots.title }).from(skoots).where(and(inArray(skoots.userId, studentIds), eq(skoots.status, "skipped"))).orderBy(desc(skoots.createdAt)).limit(100),
+    db.select({ outcomeType: skootOutcomes.outcomeType, revenueAmount: skootOutcomes.revenueAmount }).from(skootOutcomes).where(inArray(skootOutcomes.userId, studentIds)).orderBy(desc(skootOutcomes.createdAt)).limit(20),
+  ]);
+  const top = <T extends { [key: string]: unknown }>(items: T[], key: keyof T) => Object.entries(items.reduce<Record<string, number>>((acc, item) => { const value = String(item[key] ?? "").trim(); if (value) acc[value] = (acc[value] ?? 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([label, count]) => ({ label, count }));
+  return { assignedStudents: studentIds.length, bottlenecks: top(checkins, "blocker"), skippedSkoots: top(skipped, "title"), recentOutcomes: outcomes };
+}
+
 export async function createConversation(userId: number, title?: string) {
   const db = await requireDb();
   const now = Date.now();
@@ -911,5 +1189,106 @@ export async function getConversationGrounding(userId: number) {
     .where(and(eq(learningSources.userId, userId), eq(learningSources.enabled, true)))
     .orderBy(desc(learningSources.updatedAt))
     .limit(5);
-  return { activeSkoots, learningContext: learning.context, sources };
+  const business = await getBusinessSnapshot(userId);
+  return {
+    activeSkoots,
+    learningContext: learning.context,
+    sources,
+    businessMemory: business.profile
+      ? {
+          companyName: business.profile.companyName,
+          primaryGoal: business.profile.primaryGoal,
+          currentBottleneck: business.profile.currentBottleneck,
+          primaryOffer: business.profile.primaryOffer,
+          actions: business.actions.map(action => ({ title: action.title, reasoning: action.signal, status: action.status })),
+          recentWins: business.recentWins.map(outcome => ({ bookings: outcome.bookings, purchases: outcome.purchases, outcomeValue: outcome.outcomeValue })),
+        }
+      : null,
+  };
+}
+
+export async function getSupportProfiles(creatorUserId: number) {
+  const db = await requireDb();
+  return db.select().from(supportProfiles).where(eq(supportProfiles.creatorUserId, creatorUserId)).orderBy(supportProfiles.routingLevel);
+}
+
+export async function saveSupportProfile(creatorUserId: number, input: { id?: number; routingLevel: "csm" | "coach"; displayName: string; bookingUrl: string | null; active?: boolean }) {
+  const db = await requireDb();
+  const now = Date.now();
+  if (input.id) {
+    const result = await db.update(supportProfiles).set({ routingLevel: input.routingLevel, displayName: input.displayName, bookingUrl: input.bookingUrl, active: input.active ?? true, updatedAt: now }).where(and(eq(supportProfiles.id, input.id), eq(supportProfiles.creatorUserId, creatorUserId)));
+    if (!result[0]?.affectedRows) throw new Error("Support profile not found.");
+    return { id: input.id };
+  }
+  const [created] = await db.insert(supportProfiles).values({ creatorUserId, routingLevel: input.routingLevel, displayName: input.displayName, bookingUrl: input.bookingUrl, active: input.active ?? true, createdAt: now, updatedAt: now }).$returningId();
+  return { id: created.id };
+}
+
+export async function getStudentEscalationRoute(studentUserId: number, relatedSkootId?: number) {
+  const assigned = await getAssignedCreatorPackContext(studentUserId);
+  if (!assigned) return null;
+  const db = await requireDb();
+  const profiles = await db.select().from(supportProfiles).where(and(eq(supportProfiles.creatorUserId, assigned.creatorUserId), eq(supportProfiles.active, true)));
+  const prior = relatedSkootId ? await db.select({ id: skoots.id }).from(skoots).where(and(eq(skoots.userId, studentUserId), eq(skoots.id, relatedSkootId), inArray(skoots.status, ["completed", "skipped"]))) : [];
+  return { creatorUserId: assigned.creatorUserId, packId: assigned.packId, hasRelevantPackRule: assigned.knowledge.length > 0, repeatedAttempts: prior.length, csm: profiles.find(profile => profile.routingLevel === "csm") ?? null, coach: profiles.find(profile => profile.routingLevel === "coach") ?? null };
+}
+
+export async function createSmartEscalation(input: { creatorUserId: number; studentUserId: number; supportProfileId: number | null; relatedSkootId: number | null; relatedRecommendationId: number | null; packId: number | null; escalationType: "csm" | "coach"; routingReason: string; bookingUrl: string | null }) {
+  const db = await requireDb();
+  const [created] = await db.insert(smartEscalations).values({ ...input, createdAt: Date.now() }).$returningId();
+  return { mode: "escalation" as const, escalationId: created.id, escalationType: input.escalationType, routingReason: input.routingReason, bookingUrl: input.bookingUrl };
+}
+
+export async function getStudentEscalations(studentUserId: number) {
+  const db = await requireDb();
+  return db.select({ escalation: smartEscalations, helperName: supportProfiles.displayName }).from(smartEscalations).leftJoin(supportProfiles, eq(smartEscalations.supportProfileId, supportProfiles.id)).where(eq(smartEscalations.studentUserId, studentUserId)).orderBy(desc(smartEscalations.createdAt));
+}
+
+export async function getCreatorEscalations(creatorUserId: number) {
+  const db = await requireDb();
+  return db.select({ escalation: smartEscalations, studentName: users.name, studentEmail: users.email, helperName: supportProfiles.displayName }).from(smartEscalations).innerJoin(users, eq(smartEscalations.studentUserId, users.id)).leftJoin(supportProfiles, eq(smartEscalations.supportProfileId, supportProfiles.id)).where(eq(smartEscalations.creatorUserId, creatorUserId)).orderBy(desc(smartEscalations.createdAt));
+}
+
+export async function updateEscalationStatus(input: { actorUserId: number; escalationId: number; allowed: "student" | "creator"; status: "booked" | "completed" }) {
+  const db = await requireDb();
+  const actorColumn = input.allowed === "student" ? smartEscalations.studentUserId : smartEscalations.creatorUserId;
+  const result = await db.update(smartEscalations).set({ status: input.status, resolvedAt: input.status === "completed" ? Date.now() : null }).where(and(eq(smartEscalations.id, input.escalationId), eq(actorColumn, input.actorUserId)));
+  if (!result[0]?.affectedRows) throw new Error("Private escalation not found.");
+  return { success: true };
+}
+
+export async function getEscalationBrief(creatorUserId: number, escalationId: number) {
+  const db = await requireDb();
+  const escalation = (await db.select().from(smartEscalations).where(and(eq(smartEscalations.id, escalationId), eq(smartEscalations.creatorUserId, creatorUserId))).limit(1))[0];
+  if (!escalation) throw new Error("Private breakdown not found.");
+  const [checkins, actions, outcomes, pack] = await Promise.all([
+    db.select().from(dailyCheckins).where(eq(dailyCheckins.userId, escalation.studentUserId)).orderBy(desc(dailyCheckins.createdAt)).limit(1),
+    db.select().from(skoots).where(eq(skoots.userId, escalation.studentUserId)).orderBy(desc(skoots.createdAt)).limit(6),
+    db.select().from(skootOutcomes).where(eq(skootOutcomes.userId, escalation.studentUserId)).orderBy(desc(skootOutcomes.createdAt)).limit(6),
+    escalation.packId ? getOwnedCreatorPack(creatorUserId, escalation.packId) : Promise.resolve(null),
+  ]);
+  const knowledge = pack?.activeVersionId ? await db.select({ content: creatorPackKnowledge.content, knowledgeType: creatorPackKnowledge.knowledgeType }).from(creatorPackKnowledge).where(and(eq(creatorPackKnowledge.packId, pack.id), eq(creatorPackKnowledge.versionId, pack.activeVersionId))).limit(8) : [];
+  return { escalation, checkin: checkins[0] ?? null, actions, outcomes, knowledge, recommendedFocus: `Clarify the root constraint behind: ${checkins[0]?.blocker ?? escalation.routingReason}` };
+}
+
+export async function createBreakdownNote(creatorUserId: number, input: { escalationId: number; notes: string; clientNextAction?: string; proposedKnowledgeType?: CreatorKnowledgeType; proposedKnowledgeContent?: string }) {
+  const brief = await getEscalationBrief(creatorUserId, input.escalationId);
+  const db = await requireDb();
+  const [created] = await db.insert(breakdownNotes).values({ escalationId: input.escalationId, creatorUserId, authorUserId: creatorUserId, notes: input.notes, clientNextAction: input.clientNextAction || null, proposedKnowledgeType: input.proposedKnowledgeType || null, proposedKnowledgeContent: input.proposedKnowledgeContent || null, createdAt: Date.now() }).$returningId();
+  return { noteId: created.id, packId: brief.escalation.packId, studentUserId: brief.escalation.studentUserId };
+}
+
+export async function createContentSkootSuggestions(creatorUserId: number) {
+  const db = await requireDb();
+  const assignments = await db.select({ studentUserId: creatorPackAssignments.studentUserId }).from(creatorPackAssignments).where(and(eq(creatorPackAssignments.creatorUserId, creatorUserId), isNull(creatorPackAssignments.revokedAt)));
+  const ids = assignments.map(item => item.studentUserId).filter((id, index, all) => all.indexOf(id) === index);
+  if (!ids.length) return [];
+  const checkins = await db.select({ blocker: dailyCheckins.blocker }).from(dailyCheckins).where(inArray(dailyCheckins.userId, ids)).orderBy(desc(dailyCheckins.createdAt)).limit(100);
+  const counts = checkins.reduce<Record<string, number>>((memo, item) => { const label = item.blocker.trim(); if (label) memo[label] = (memo[label] ?? 0) + 1; return memo; }, {});
+  const suggestions = Object.entries(counts).filter(([, count]) => count >= 2).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([bottleneckLabel, count]) => ({ bottleneckLabel, ...anonymizedContentSuggestion(bottleneckLabel, count) }));
+  for (const suggestion of suggestions) {
+    const existing = await db.select({ id: contentSkoots.id }).from(contentSkoots).where(and(eq(contentSkoots.creatorUserId, creatorUserId), eq(contentSkoots.bottleneckLabel, suggestion.bottleneckLabel), eq(contentSkoots.status, "suggested"))).limit(1);
+    if (!existing.length) await db.insert(contentSkoots).values({ creatorUserId, bottleneckLabel: suggestion.bottleneckLabel, occurrenceCount: suggestion.occurrenceCount, title: suggestion.title, format: suggestion.format, outline: suggestion.outline, createdAt: Date.now() });
+  }
+  return suggestions;
 }

@@ -1,0 +1,54 @@
+import { useAuth } from "@/_core/hooks/useAuth";
+import { CreatorSupportPanel } from "@/components/CreatorSupportPanel";
+import { MemphisShapes, SkootlyHeader } from "@/components/SkootlyHeader";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { trpc } from "@/lib/trpc";
+import { Check, CopyPlus, Lightbulb, Loader2, Plus, UserPlus, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+
+const blankPack = { name: "", description: "" };
+const labelFor = (kind: string) => kind.replaceAll("_", " ");
+const date = (value?: number) => value ? new Date(value).toLocaleDateString() : "—";
+
+export default function CreatorPacks() {
+  const { user, loading } = useAuth();
+  const utils = trpc.useUtils();
+  const packsQuery = trpc.creatorPacks.list.useQuery(undefined, { enabled: Boolean(user) });
+  const insights = trpc.creatorPacks.insights.useQuery(undefined, { enabled: Boolean(user) });
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [newOpen, setNewOpen] = useState(false);
+  const [packForm, setPackForm] = useState(blankPack);
+  const [teaching, setTeaching] = useState("");
+  const [studentEmail, setStudentEmail] = useState("");
+  const packs = packsQuery.data ?? [];
+  const selected = useMemo(() => packs.find(pack => pack.id === selectedId) ?? null, [packs, selectedId]);
+  const proposals = trpc.creatorPacks.listProposals.useQuery({ packId: selectedId ?? 0 }, { enabled: Boolean(selectedId) });
+  useEffect(() => { if (!selectedId && packs[0]) setSelectedId(packs[0].id); }, [packs, selectedId]);
+  const refresh = async () => { await utils.creatorPacks.list.invalidate(); await utils.creatorPacks.insights.invalidate(); if (selectedId) await utils.creatorPacks.listProposals.invalidate({ packId: selectedId }); };
+  const create = trpc.creatorPacks.create.useMutation({ onSuccess: async result => { await refresh(); setSelectedId(result.packId); setPackForm(blankPack); setNewOpen(false); toast.success("Creator Pack created. Teach Skootly the first rule."); }, onError: error => toast.error(error.message) });
+  const propose = trpc.creatorPacks.propose.useMutation({ onSuccess: async () => { await refresh(); setTeaching(""); toast.success("Knowledge proposal ready for review."); }, onError: error => toast.error(error.message) });
+  const approve = trpc.creatorPacks.approve.useMutation({ onSuccess: refresh, onError: error => toast.error(error.message) });
+  const cancel = trpc.creatorPacks.cancel.useMutation({ onSuccess: refresh, onError: error => toast.error(error.message) });
+  const assign = trpc.creatorPacks.assign.useMutation({ onSuccess: async result => { await refresh(); setStudentEmail(""); toast.success(`Assigned to ${result.student.email || result.student.name}.`); }, onError: error => toast.error(error.message) });
+  if (loading || packsQuery.isLoading) return <div className="creator-loading"><Loader2 className="animate-spin" /> Loading Creator Packs…</div>;
+  if (!user) return <div className="creator-loading">Sign in to create a Pack.</div>;
+
+  return <div className="creator-page"><SkootlyHeader /><MemphisShapes quiet /><main className="creator-shell">
+    <section className="creator-hero"><div><p className="eyebrow">CREATOR MODE</p><h1>Teach Skootly once.<br />Students get a clearer next move.</h1><p>Turn your evolving method into reviewable rules—not giant prompt documents.</p></div><Button onClick={() => setNewOpen(true)}><Plus className="size-4" /> New Skoot Pack</Button></section>
+    <div className="creator-layout"><aside className="creator-pack-list"><div className="creator-list-heading"><span>Your Packs</span><Button size="icon" variant="outline" onClick={() => setNewOpen(true)} aria-label="Create a Skoot Pack"><Plus className="size-4" /></Button></div>{packs.length ? packs.map(pack => <button key={pack.id} onClick={() => setSelectedId(pack.id)} className={pack.id === selectedId ? "creator-pack-item creator-pack-item--active" : "creator-pack-item"}><b>{pack.name}</b><span>Version {pack.activeVersion?.versionNumber ?? 1} · {pack.assignments.length} student{pack.assignments.length === 1 ? "" : "s"}</span></button>) : <div className="creator-list-empty"><Lightbulb className="size-5" />Start with one Pack for one method.</div>}</aside>
+      <section className="creator-workspace">{selected ? <><div className="creator-pack-heading"><div><p className="card-kicker">CURRENT PACK</p><h2>{selected.name}</h2><p>{selected.description || "Add a short description to clarify this method."}</p></div><Badge variant="outline">Version {selected.activeVersion?.versionNumber ?? 1} · updated {date(selected.updatedAt)}</Badge></div>
+        <article className="creator-teach-card"><div><p className="card-kicker">TEACH SKOOTLY</p><h3>What changed in your method?</h3><p>Say it naturally. Skootly makes a reviewable proposal; student guidance never changes silently.</p></div><Textarea value={teaching} onChange={event => setTeaching(event.target.value)} placeholder="I’ve learned that students should speak to 10 potential buyers before building their webinar." /><Button disabled={!teaching.trim() || propose.isPending} onClick={() => selectedId && propose.mutate({ packId: selectedId, sourceText: teaching })}>{propose.isPending ? <Loader2 className="size-4 animate-spin" /> : <CopyPlus className="size-4" />} Propose Pack update</Button></article>
+        <section className="creator-proposals"><div className="section-heading"><div><p className="card-kicker">REVIEW BEFORE PUBLISHING</p><h3>Pending knowledge</h3></div><span>{proposals.data?.length ?? 0} pending</span></div>{proposals.data?.length ? proposals.data.map(item => <article className="creator-proposal" key={item.id}><div><Badge>{labelFor(item.proposedType)}</Badge><p className="proposal-source">“{item.sourceText}”</p><h4>{item.proposedContent}</h4></div><div className="proposal-actions"><Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate({ proposalId: item.id })}><Check className="size-3" /> Add to Pack</Button><Button size="sm" variant="outline" onClick={() => cancel.mutate({ proposalId: item.id })}><X className="size-3" /> Cancel</Button></div></article>) : <div className="creator-empty-state">Your reviewable knowledge proposals will appear here.</div>}</section>
+        <section className="creator-assign"><div><p className="card-kicker">ASSIGN STUDENT</p><h3>Give the newest approved version automatically.</h3><p>Students need an existing Skootly account. Their conversations stay private.</p></div><div><Label className="sr-only" htmlFor="student-email">Student email</Label><Input id="student-email" value={studentEmail} onChange={event => setStudentEmail(event.target.value)} placeholder="student@example.com" type="email" /><Button disabled={!studentEmail || assign.isPending} onClick={() => selectedId && assign.mutate({ packId: selectedId, studentEmail })}><UserPlus className="size-4" /> Assign</Button></div>{selected.assignments.length ? <div className="student-chips">{selected.assignments.map(student => <span key={student.id}>{student.name || student.email || `Student #${student.studentUserId}`}</span>)}</div> : null}</section>
+        <CreatorSupportPanel />
+      </> : <div className="creator-start"><Lightbulb className="size-8" /><h2>Create the first living Skoot Pack.</h2><p>Start with a named method, then teach Skootly rules one at a time.</p><Button onClick={() => setNewOpen(true)}>Create a Pack</Button></div>}</section>
+      <aside className="creator-insights"><p className="card-kicker">EARLY SIGNALS</p><h2>What your students are experiencing</h2><div className="insight-number"><b>{insights.data?.assignedStudents ?? 0}</b><span>assigned student{(insights.data?.assignedStudents ?? 0) === 1 ? "" : "s"}</span></div><div className="insight-block"><h3>Getting stuck on</h3>{insights.data?.bottlenecks?.length ? insights.data.bottlenecks.map(item => <p key={item.label}>{item.label}<b>{item.count}</b></p>) : <p className="muted">Student check-ins will reveal patterns here.</p>}</div><div className="insight-block"><h3>Frequently skipped</h3>{insights.data?.skippedSkoots?.length ? insights.data.skippedSkoots.map(item => <p key={item.label}>{item.label}<b>{item.count}</b></p>) : <p className="muted">Skipped Skoot patterns will appear here.</p>}</div></aside>
+    </div>
+  </main><Dialog open={newOpen} onOpenChange={setNewOpen}><DialogContent><DialogHeader><DialogTitle>Create a Skoot Pack</DialogTitle><DialogDescription>One Pack represents one evolving method. You can update it without asking students to copy a new prompt.</DialogDescription></DialogHeader><div className="creator-new-form"><Label>Pack name<Input value={packForm.name} onChange={event => setPackForm({ ...packForm, name: event.target.value })} placeholder="Launch Skoot Pack" /></Label><Label>What is it for?<Textarea value={packForm.description} onChange={event => setPackForm({ ...packForm, description: event.target.value })} placeholder="Decision rules for validating and launching a new offer." /></Label><Button disabled={!packForm.name.trim() || create.isPending} onClick={() => create.mutate(packForm)}>{create.isPending ? "Creating…" : "Create Pack"}</Button></div></DialogContent></Dialog></div>;
+}
