@@ -223,3 +223,11 @@
 - [x] Add protocol, scope, PKCE, trusted-origin, tool-schema, confirmation, revocation-control, and feedback-ownership regression coverage; run TypeScript, 85 passing tests with one optional HighLevel live-credential test skipped, a production build, and desktop/mobile managed-preview verification.
 - [x] Keep the MCP integration limited to user-authorized Skootly Pack data and explicit feedback; do not add Skool scraping, a browser extension, automated module capture, or course-platform automation.
 - [ ] Perform a real provider-side connection test with the exact ChatGPT or Manus OAuth client metadata and redirect URI after the user explicitly resumes browser control; do not claim provider-specific compatibility before that test.
+- [ ] Identify the correct OpenAI developer surface for configuring a remote MCP connection; do not create API keys or modify project billing.
+- [ ] Enter and validate Skootly’s public MCP metadata only where the provider supports it, retaining least-privilege scopes and no autonomous Pack writes.
+- [ ] Obtain confirmation before authorizing a live OAuth connection or saving/submitting a provider-side configuration.
+- [ ] Run the approved ChatGPT MCP connection test, record the outcome, and update setup guidance without publishing or widening access unless separately confirmed.
+- [ ] Configure the verified OpenAI developer account’s MCP plugin draft with Skootly’s endpoint and validate every provider-required field before requesting confirmation to save it.
+- [x] Serve the OpenAI-issued one-time domain verification value only at Skootly’s required `/.well-known/openai-apps-challenge` path through a protected environment value, with an endpoint-level test that validates the configured response without logging the value.
+- [ ] Publish and externally verify that the exact well-known challenge URL returns the provider-issued value over HTTPS before the user clicks Verify Domain.
+- [ ] Complete the OpenAI domain verification and scan Skootly’s declared MCP tools without authorizing a live user connection or submitting the plugin.

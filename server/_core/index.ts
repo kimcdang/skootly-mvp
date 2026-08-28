@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerHighLevelOAuthRoutes } from "../highlevelRoutes";
 import { registerMcpRoutes } from "../mcpServer";
+import { registerOpenAiDomainVerificationRoute } from "../openaiDomainVerification";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -40,6 +41,7 @@ async function startServer() {
   registerOAuthRoutes(app);
   registerHighLevelOAuthRoutes(app);
   registerMcpRoutes(app);
+  registerOpenAiDomainVerificationRoute(app);
   // tRPC API
   app.use(
     "/api/trpc",
