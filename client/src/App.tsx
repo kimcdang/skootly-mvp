@@ -15,9 +15,10 @@ import AuthPage from "./pages/AuthPage";
 import AccountSecurity from "./pages/AccountSecurity";
 import PackEnrollment from "./pages/PackEnrollment";
 import ConnectedAi from "./pages/ConnectedAi";
+import CreatorInviteEnrollment from "./pages/CreatorInviteEnrollment";
 
 function Router() {
-  return <Switch><Route path="/" component={Home} /><Route path="/login" component={AuthPage} /><Route path="/account" component={AccountSecurity} /><Route path="/connect-ai" component={ConnectedAi} /><Route path="/join/:token" component={PackEnrollment} /><Route path="/founder">{() => <ExperimentPage version="founder" />}</Route><Route path="/freight-to-freedom" component={FreightToFreedom} /><Route path="/creator" component={CreatorPacks} /><Route path="/coach">{() => <ExperimentPage version="coach" />}</Route><Route path="/client-success">{() => <ExperimentPage version="client_success" />}</Route><Route path="/history" component={History} /><Route path="/lab" component={Lab} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/" component={Home} /><Route path="/login" component={AuthPage} /><Route path="/account" component={AccountSecurity} /><Route path="/connect-ai" component={ConnectedAi} /><Route path="/join/:token" component={PackEnrollment} /><Route path="/creator/join/:token" component={CreatorInviteEnrollment} /><Route path="/founder">{() => <ExperimentPage version="founder" />}</Route><Route path="/freight-to-freedom" component={FreightToFreedom} /><Route path="/creator" component={CreatorPacks} /><Route path="/coach">{() => <ExperimentPage version="coach" />}</Route><Route path="/client-success">{() => <ExperimentPage version="client_success" />}</Route><Route path="/history" component={History} /><Route path="/lab" component={Lab} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
 }
 
 export default function App() {

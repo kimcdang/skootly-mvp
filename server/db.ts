@@ -19,6 +19,7 @@ import {
   creatorPackProposals,
   creatorPackVersions,
   creatorSkootPacks,
+  creatorWorkspaceInvites,
   experimentEvents,
   groupContexts,
   identifiableContentConsents,
@@ -1157,6 +1158,48 @@ export async function getCreatorPackInvites(creatorUserId: number, packId: numbe
 export async function revokeCreatorPackInvite(creatorUserId: number, inviteId: number) {
   const db = await requireDb(); const result = await db.update(creatorPackInvites).set({ status: "revoked", revokedAt: Date.now() }).where(and(eq(creatorPackInvites.id, inviteId), eq(creatorPackInvites.creatorUserId, creatorUserId), eq(creatorPackInvites.status, "pending")));
   if (!result[0]?.affectedRows) throw new Error("Pending invite not found."); return { success: true };
+}
+
+export async function createCreatorWorkspaceInvite(inviterUserId: number, email: string, expiresInDays: number) {
+  const db = await requireDb(); const normalizedEmail = email.trim().toLowerCase();
+  const inviter = (await db.select({ email: users.email }).from(users).where(eq(users.id, inviterUserId)).limit(1))[0];
+  if (inviter?.email?.trim().toLowerCase() === normalizedEmail) throw new Error("Use a different email address for a creator invitation.");
+  const now = Date.now(); const token = createInviteToken(); const expiresAt = now + expiresInDays * 86_400_000;
+  const [invite] = await db.insert(creatorWorkspaceInvites).values({ inviterUserId, email: normalizedEmail, tokenHash: hashInviteToken(token), expiresAt, createdAt: now }).$returningId();
+  return { inviteId: invite.id, token, expiresAt };
+}
+
+export async function getCreatorWorkspaceInvites(inviterUserId: number) {
+  const db = await requireDb(); const now = Date.now();
+  const invites = await db.select({ id: creatorWorkspaceInvites.id, email: creatorWorkspaceInvites.email, status: creatorWorkspaceInvites.status, expiresAt: creatorWorkspaceInvites.expiresAt, acceptedAt: creatorWorkspaceInvites.acceptedAt, revokedAt: creatorWorkspaceInvites.revokedAt, createdAt: creatorWorkspaceInvites.createdAt }).from(creatorWorkspaceInvites).where(eq(creatorWorkspaceInvites.inviterUserId, inviterUserId)).orderBy(desc(creatorWorkspaceInvites.createdAt));
+  return invites.map(invite => ({ ...invite, status: invite.status === "pending" && isInviteExpired(invite.expiresAt, now) ? "expired" as const : invite.status }));
+}
+
+export async function revokeCreatorWorkspaceInvite(inviterUserId: number, inviteId: number) {
+  const db = await requireDb();
+  const result = await db.update(creatorWorkspaceInvites).set({ status: "revoked", revokedAt: Date.now() }).where(and(eq(creatorWorkspaceInvites.id, inviteId), eq(creatorWorkspaceInvites.inviterUserId, inviterUserId), eq(creatorWorkspaceInvites.status, "pending")));
+  if (!result[0]?.affectedRows) throw new Error("Pending creator invitation not found.");
+  return { success: true };
+}
+
+export async function getCreatorWorkspaceInvitePreview(token: string) {
+  const db = await requireDb();
+  const invite = (await db.select({ email: creatorWorkspaceInvites.email, status: creatorWorkspaceInvites.status, expiresAt: creatorWorkspaceInvites.expiresAt, inviterName: users.name }).from(creatorWorkspaceInvites).innerJoin(users, eq(creatorWorkspaceInvites.inviterUserId, users.id)).where(eq(creatorWorkspaceInvites.tokenHash, hashInviteToken(token))).limit(1))[0];
+  if (!invite || invite.status !== "pending" || isInviteExpired(invite.expiresAt)) return null;
+  return { inviterName: invite.inviterName || "A Skootly creator", emailHint: invite.email.replace(/(^.).*(@.*$)/, "$1•••$2"), expiresAt: invite.expiresAt };
+}
+
+export async function acceptCreatorWorkspaceInvite(userId: number, userEmail: string | null, token: string) {
+  if (!userEmail) throw new Error("Add your email address before accepting a creator invitation.");
+  const db = await requireDb(); const now = Date.now(); const normalizedEmail = userEmail.trim().toLowerCase();
+  return db.transaction(async tx => {
+    const invite = (await tx.select().from(creatorWorkspaceInvites).where(eq(creatorWorkspaceInvites.tokenHash, hashInviteToken(token))).limit(1))[0];
+    if (!invite || invite.status !== "pending" || isInviteExpired(invite.expiresAt, now)) throw new Error("This creator invitation is no longer available.");
+    if (invite.email !== normalizedEmail) throw new Error("Sign in with the email address this creator invitation was created for.");
+    const result = await tx.update(creatorWorkspaceInvites).set({ status: "accepted", acceptedUserId: userId, acceptedAt: now }).where(and(eq(creatorWorkspaceInvites.id, invite.id), eq(creatorWorkspaceInvites.status, "pending")));
+    if (!result[0]?.affectedRows) throw new Error("This creator invitation has already been used.");
+    return { success: true, creatorUrl: "/creator" };
+  });
 }
 
 export async function getCreatorPackInvitePreview(token: string) {

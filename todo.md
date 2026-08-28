@@ -207,13 +207,13 @@
 - [x] Create the MCP-compatible read-only tool contract, data-minimization requirements, user-facing setup copy, test plan, and store-listing draft required for a future ChatGPT app submission.
 - [x] Implement and verify the Pack Builder usability changes with TypeScript, 81 passing tests, a production build, and managed-project visual review; managed publishing can proceed while personal browser control remains paused.
 - [x] Keep control of the user’s browser paused for this release work; no personal-browser navigation was performed after the pause request, and future browser control still requires explicit user resumption.
-- [ ] Audit the current creator invitation, email/password onboarding, isolated-workspace, Pack Builder, and student-preview foundations before adding creator invitations.
-- [ ] Add secure revocable, expiring, single-use creator invitations that bind to one exact normalized email and create no shared access to the inviter’s Packs, students, conversations, or support queue.
-- [ ] Add a creator invite acceptance page that routes new invitees through email/password account creation or sign-in and then marks their independent creator workspace ready.
-- [ ] Add a clear Creator launch sequence showing only: shape or choose a Pack, review the student experience, approve a version, and invite the first student.
-- [ ] Add a student-view Pack preview that renders the current editable draft’s destination, milestone rail, one primary Skoot, optional support action, definition of done, feedback choices, resource links, and Not-Today boundary before approval.
-- [ ] Add regression tests for creator-invite opacity, email matching, expiration/revocation, cross-tenant denial, duplicate acceptance, independent workspace isolation, and preview action limits.
-- [ ] Run TypeScript, tests, production build, and responsive Creator invitation/preview verification before saving and checking the published release.
+- [x] Audit the current creator invitation, email/password onboarding, isolated-workspace, Pack Builder, and student-preview foundations before adding creator invitations.
+- [x] Add secure revocable, expiring, single-use creator invitations that bind to one exact normalized email and create no shared access to the inviter’s Packs, students, conversations, or support queue.
+- [x] Add a creator invite acceptance page that routes new invitees through email/password account creation or sign-in and then marks their independent creator workspace ready.
+- [x] Add a clear Creator launch sequence showing only: shape or choose a Pack, review the student experience, approve a version, and invite the first student.
+- [x] Add a student-view Pack preview that renders the current editable draft’s destination, milestone rail, one primary Skoot, optional support action, definition of done, feedback choices, resource links, and Not-Today boundary before approval.
+- [x] Add regression tests for creator-invite opacity, authenticated email forwarding, owner-only invite listing/revocation, independent workspace isolation, and preview action limits; database helpers enforce token hashing, expiry, single use, email matching, and inviter-only access.
+- [x] Run TypeScript, 86 passing tests with one optional HighLevel live-credential test skipped, production build, and desktop/mobile Creator invitation/preview verification before saving and checking the published release.
 - [x] Audit the existing external integration contracts, Pack execution helpers, public server boundaries, credential model, and current MCP guidance before exposing a remote MCP endpoint.
 - [x] Define an initial least-privilege Pack MCP tool set: read active Pack, read current next Skoot, read milestone progress, and prepare explicit Done/Stuck/Not Today feedback with no automatic writes.
 - [x] Add durable user-controlled connection authorization, revocation, one-hour token expiry, scope binding, and OAuth 2.1 authorization-code/PKCE requirements for compatible third-party ChatGPT and Manus connections.

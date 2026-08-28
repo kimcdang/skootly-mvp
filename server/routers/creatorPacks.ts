@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { creatorKnowledgeTypes, proposeCreatorKnowledge } from "../creatorPacks";
-import { acceptCreatorPackInvite, approveCreatorPackProposal, assignCreatorPackStudent, cancelCreatorPackProposal, createCreatorPack, createCreatorPackInvite, createCreatorPackProposal, createGuidedCreatorPack, getCreatorPackBuilder, getCreatorPackInsights, getCreatorPackInvitePreview, getCreatorPackInvites, getCreatorPackOperatingView, getCreatorPacks, getCreatorPackProposals, getMyPackExecution, getMyPackJourney, publishGuidedCreatorPackRevision, recordMyPackExecutionFeedback, revokeCreatorPackInvite, rollEnrollmentToActiveVersion, saveMyPackDiagnosticAnswer } from "../db";
+import { acceptCreatorPackInvite, acceptCreatorWorkspaceInvite, approveCreatorPackProposal, assignCreatorPackStudent, cancelCreatorPackProposal, createCreatorPack, createCreatorPackInvite, createCreatorPackProposal, createCreatorWorkspaceInvite, createGuidedCreatorPack, getCreatorPackBuilder, getCreatorPackInsights, getCreatorPackInvitePreview, getCreatorPackInvites, getCreatorPackOperatingView, getCreatorPacks, getCreatorPackProposals, getCreatorWorkspaceInvitePreview, getCreatorWorkspaceInvites, getMyPackExecution, getMyPackJourney, publishGuidedCreatorPackRevision, recordMyPackExecutionFeedback, revokeCreatorPackInvite, revokeCreatorWorkspaceInvite, rollEnrollmentToActiveVersion, saveMyPackDiagnosticAnswer } from "../db";
 import { packTemplateKinds, starterPackDraft, validatePackBlueprintDraft } from "../packMvp";
 import { shapePackFromNotes } from "../packAuthoring";
 
@@ -56,4 +56,9 @@ export const creatorPacksRouter = router({
   recordExecutionFeedback: protectedProcedure.input(z.object({ feedbackStatus: z.enum(["done", "stuck", "not_today"]), detail: z.string().trim().max(3000).optional() })).mutation(({ ctx, input }) => recordMyPackExecutionFeedback(ctx.user.id, input)),
   operatingView: protectedProcedure.input(z.object({ packId: z.number().int().positive() })).query(({ ctx, input }) => getCreatorPackOperatingView(ctx.user.id, input.packId)),
   rollEnrollmentForward: protectedProcedure.input(z.object({ enrollmentId: z.number().int().positive() })).mutation(({ ctx, input }) => rollEnrollmentToActiveVersion(ctx.user.id, input.enrollmentId)),
+  createCreatorInvite: protectedProcedure.input(z.object({ email: z.string().trim().email().max(320), expiresInDays: z.number().int().min(1).max(30).default(7) })).mutation(({ ctx, input }) => createCreatorWorkspaceInvite(ctx.user.id, input.email, input.expiresInDays)),
+  listCreatorInvites: protectedProcedure.query(({ ctx }) => getCreatorWorkspaceInvites(ctx.user.id)),
+  revokeCreatorInvite: protectedProcedure.input(z.object({ inviteId: z.number().int().positive() })).mutation(({ ctx, input }) => revokeCreatorWorkspaceInvite(ctx.user.id, input.inviteId)),
+  creatorInvitePreview: publicProcedure.input(z.object({ token: z.string().min(40).max(200) })).query(({ input }) => getCreatorWorkspaceInvitePreview(input.token)),
+  acceptCreatorInvite: protectedProcedure.input(z.object({ token: z.string().min(40).max(200) })).mutation(({ ctx, input }) => acceptCreatorWorkspaceInvite(ctx.user.id, ctx.user.email, input.token)),
 });

@@ -4,8 +4,11 @@ const mocks = vi.hoisted(() => ({
   approveCreatorPackProposal: vi.fn(),
   assignCreatorPackStudent: vi.fn(),
   createCreatorPackInvite: vi.fn(),
+  createCreatorWorkspaceInvite: vi.fn(),
   createGuidedCreatorPack: vi.fn(),
   getCreatorPackInvitePreview: vi.fn(),
+  getCreatorWorkspaceInvitePreview: vi.fn(),
+  getCreatorWorkspaceInvites: vi.fn(),
   getCreatorPackOperatingView: vi.fn(),
   getMyPackExecution: vi.fn(),
   getMyPackJourney: vi.fn(),
@@ -13,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   recordMyPackExecutionFeedback: vi.fn(),
   rollEnrollmentToActiveVersion: vi.fn(),
   acceptCreatorPackInvite: vi.fn(),
+  acceptCreatorWorkspaceInvite: vi.fn(),
+  revokeCreatorWorkspaceInvite: vi.fn(),
 }));
 
 vi.mock("./db", async importOriginal => ({
@@ -20,8 +25,11 @@ vi.mock("./db", async importOriginal => ({
   approveCreatorPackProposal: mocks.approveCreatorPackProposal,
   assignCreatorPackStudent: mocks.assignCreatorPackStudent,
   createCreatorPackInvite: mocks.createCreatorPackInvite,
+  createCreatorWorkspaceInvite: mocks.createCreatorWorkspaceInvite,
   createGuidedCreatorPack: mocks.createGuidedCreatorPack,
   getCreatorPackInvitePreview: mocks.getCreatorPackInvitePreview,
+  getCreatorWorkspaceInvitePreview: mocks.getCreatorWorkspaceInvitePreview,
+  getCreatorWorkspaceInvites: mocks.getCreatorWorkspaceInvites,
   getCreatorPackOperatingView: mocks.getCreatorPackOperatingView,
   getMyPackExecution: mocks.getMyPackExecution,
   getMyPackJourney: mocks.getMyPackJourney,
@@ -29,14 +37,16 @@ vi.mock("./db", async importOriginal => ({
   recordMyPackExecutionFeedback: mocks.recordMyPackExecutionFeedback,
   rollEnrollmentToActiveVersion: mocks.rollEnrollmentToActiveVersion,
   acceptCreatorPackInvite: mocks.acceptCreatorPackInvite,
+  acceptCreatorWorkspaceInvite: mocks.acceptCreatorWorkspaceInvite,
+  revokeCreatorWorkspaceInvite: mocks.revokeCreatorWorkspaceInvite,
 }));
 
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-function context(userId: number): TrpcContext {
+function context(userId: number, email = `user-${userId}@example.com`): TrpcContext {
   return {
-    user: { id: userId, openId: String(userId), name: "User", email: `user-${userId}@example.com`, loginMethod: null, role: "user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+    user: { id: userId, openId: String(userId), name: "User", email, loginMethod: null, role: "user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
     res: {} as TrpcContext["res"],
   };
@@ -89,5 +99,27 @@ describe("Creator Pack authenticated ownership contracts", () => {
     expect(mocks.recordMyPackExecutionFeedback).toHaveBeenCalledWith(42, { feedbackStatus: "stuck", detail: "Need help" });
     expect(mocks.getCreatorPackOperatingView).toHaveBeenCalledWith(7, 5);
     expect(mocks.rollEnrollmentToActiveVersion).toHaveBeenCalledWith(7, 9);
+  });
+
+  it("binds creator invitations and acceptance to the authenticated inviter and exact signed-in email", async () => {
+    mocks.createCreatorWorkspaceInvite.mockResolvedValue({ inviteId: 12, token: "x".repeat(43), expiresAt: 123 });
+    mocks.getCreatorWorkspaceInvites.mockResolvedValue([]);
+    mocks.revokeCreatorWorkspaceInvite.mockResolvedValue({ success: true });
+    mocks.getCreatorWorkspaceInvitePreview.mockResolvedValue({ inviterName: "Creator", emailHint: "c•••@example.com", expiresAt: 123 });
+    mocks.acceptCreatorWorkspaceInvite.mockResolvedValue({ success: true, creatorUrl: "/creator" });
+    const owner = appRouter.createCaller(context(7));
+    const invitee = appRouter.createCaller(context(42, "creator@example.com"));
+
+    await owner.creatorPacks.createCreatorInvite({ email: "creator@example.com", expiresInDays: 7 });
+    await owner.creatorPacks.listCreatorInvites();
+    await owner.creatorPacks.revokeCreatorInvite({ inviteId: 12 });
+    await invitee.creatorPacks.creatorInvitePreview({ token: "x".repeat(43) });
+    await invitee.creatorPacks.acceptCreatorInvite({ token: "x".repeat(43) });
+
+    expect(mocks.createCreatorWorkspaceInvite).toHaveBeenCalledWith(7, "creator@example.com", 7);
+    expect(mocks.getCreatorWorkspaceInvites).toHaveBeenCalledWith(7);
+    expect(mocks.revokeCreatorWorkspaceInvite).toHaveBeenCalledWith(7, 12);
+    expect(mocks.getCreatorWorkspaceInvitePreview).toHaveBeenCalledWith("x".repeat(43));
+    expect(mocks.acceptCreatorWorkspaceInvite).toHaveBeenCalledWith(42, "creator@example.com", "x".repeat(43));
   });
 });

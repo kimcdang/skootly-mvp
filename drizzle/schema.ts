@@ -756,6 +756,24 @@ export const creatorPackInvites = mysqlTable(
   table => [uniqueIndex("pack_invite_token_unique").on(table.tokenHash), index("pack_invite_creator_idx").on(table.creatorUserId, table.status, table.createdAt), index("pack_invite_email_idx").on(table.email, table.status, table.expiresAt)],
 );
 
+/** A revocable invitation to start an independent Creator workspace. It never grants access to the inviter’s data. */
+export const creatorWorkspaceInvites = mysqlTable(
+  "creator_workspace_invites",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    inviterUserId: int("inviterUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 320 }).notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+    status: mysqlEnum("status", ["pending", "accepted", "revoked", "expired"]).default("pending").notNull(),
+    acceptedUserId: int("acceptedUserId").references(() => users.id, { onDelete: "set null" }),
+    expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+    acceptedAt: bigint("acceptedAt", { mode: "number" }),
+    revokedAt: bigint("revokedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("creator_invite_token_unique").on(table.tokenHash), index("creator_invite_owner_idx").on(table.inviterUserId, table.status, table.createdAt), index("creator_invite_email_idx").on(table.email, table.status, table.expiresAt)],
+);
+
 /** Student acceptance pins a Pack version until the creator intentionally changes rollout behavior. */
 export const creatorPackEnrollments = mysqlTable(
   "creator_pack_enrollments",
@@ -973,6 +991,7 @@ export type CreatorPackDiagnosticAnswer = typeof creatorPackDiagnosticAnswers.$i
 export type CreatorPackBlueprint = typeof creatorPackBlueprints.$inferSelect;
 export type CreatorPackMilestone = typeof creatorPackMilestones.$inferSelect;
 export type CreatorPackInvite = typeof creatorPackInvites.$inferSelect;
+export type CreatorWorkspaceInvite = typeof creatorWorkspaceInvites.$inferSelect;
 export type CreatorPackEnrollment = typeof creatorPackEnrollments.$inferSelect;
 export type CreatorPackExecutionFeedback = typeof creatorPackExecutionFeedback.$inferSelect;
 export type SupportProfile = typeof supportProfiles.$inferSelect;
