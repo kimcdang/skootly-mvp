@@ -229,5 +229,9 @@
 - [ ] Run the approved ChatGPT MCP connection test, record the outcome, and update setup guidance without publishing or widening access unless separately confirmed.
 - [ ] Configure the verified OpenAI developer account’s MCP plugin draft with Skootly’s endpoint and validate every provider-required field before requesting confirmation to save it.
 - [x] Serve the OpenAI-issued one-time domain verification value only at Skootly’s required `/.well-known/openai-apps-challenge` path through a protected environment value, with an endpoint-level test that validates the configured response without logging the value.
-- [ ] Publish and externally verify that the exact well-known challenge URL returns the provider-issued value over HTTPS before the user clicks Verify Domain.
+- [x] Publish and externally verify that the exact well-known challenge URL returns the provider-issued value over HTTPS before the user clicks Verify Domain; the response matches the managed provider value without logging it.
 - [ ] Complete the OpenAI domain verification and scan Skootly’s declared MCP tools without authorizing a live user connection or submitting the plugin.
+- [x] Diagnose the reported ChatGPT OAuth error: ChatGPT’s Client ID Metadata Document advertises legacy `private_key_jwt` preference alongside supported methods including `none`, while Skootly previously treated the legacy field as exclusive.
+- [x] Update Skootly’s OAuth metadata, client registration, and authorization validation to support ChatGPT’s documented PKCE public-client method intersection, stable issuer identification, and exact callback validation without accepting arbitrary clients or weakening PKCE, redirect-URI, scope, or tenant checks.
+- [x] Add regression coverage for ChatGPT’s documented CIMD public-client pattern, retain rejection of private-key-only clients, and verify the exact client ID plus stable callback safely hand off to Skootly login locally.
+- [ ] Publish the OAuth compatibility fix, verify it locally, and guide the user through a safe Scan Tools retry without submitting the plugin or authorizing Pack access.

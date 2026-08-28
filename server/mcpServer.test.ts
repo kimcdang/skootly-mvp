@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { describe, expect, it } from "vitest";
-import { isAllowedMcpOrigin, MCP_TOOLS, parseMcpScopes, verifyPkceS256 } from "./mcpServer";
+import { isAllowedMcpOrigin, MCP_ISSUER, MCP_TOOLS, parseMcpScopes, supportsPublicClientTokenExchange, verifyPkceS256 } from "./mcpServer";
 
 describe("Skootly MCP protocol safeguards", () => {
   it("keeps scopes small and rejects unknown permission requests", () => {
@@ -28,5 +28,11 @@ describe("Skootly MCP protocol safeguards", () => {
     expect(MCP_TOOLS.slice(0, 3).every(tool => tool.annotations.readOnlyHint)).toBe(true);
     expect(MCP_TOOLS.slice(3).every(tool => !tool.annotations.readOnlyHint)).toBe(true);
     expect(MCP_TOOLS.find(tool => tool.name === "confirm_pack_feedback")?.inputSchema.required).toEqual(["confirmationToken", "confirmed"]);
+  });
+
+  it("accepts ChatGPT’s documented CIMD public-client method intersection without accepting a private-key-only client", () => {
+    expect(supportsPublicClientTokenExchange({ token_endpoint_auth_method: "private_key_jwt", token_endpoint_auth_methods_supported: ["none", "private_key_jwt"] })).toBe(true);
+    expect(supportsPublicClientTokenExchange({ token_endpoint_auth_method: "private_key_jwt", token_endpoint_auth_methods_supported: ["private_key_jwt"] })).toBe(false);
+    expect(MCP_ISSUER).toBe("https://skootly.com");
   });
 });

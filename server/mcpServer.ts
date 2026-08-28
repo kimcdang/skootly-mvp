@@ -13,6 +13,7 @@ type McpScope = typeof MCP_SCOPES[number];
 
 type OAuthRequest = { clientId: string; clientName: string; redirectUri: string; scopes: McpScope[]; resource: string; codeChallenge: string; state?: string };
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> };
+type OAuthClientMetadata = { client_id?: string; client_name?: string; redirect_uris?: string[]; token_endpoint_auth_method?: string; token_endpoint_auth_methods_supported?: string[] };
 
 const requestCookie = "skootly_mcp_authorize";
 const cookieMaxAgeSeconds = 10 * 60;
@@ -29,16 +30,20 @@ function verifiedRequest(value?: string): OAuthRequest | null { try { if (!value
 export function parseMcpScopes(value?: string) { const scopes = (value || "skootly.packs.read").split(" ").filter(Boolean); return scopes.every(scope => MCP_SCOPES.includes(scope as McpScope)) ? scopes as McpScope[] : null; }
 function hasScope(scopes: string, scope: McpScope) { return scopes.split(" ").includes(scope); }
 export function verifyPkceS256(verifier: string, challenge: string) { return createHash("sha256").update(verifier).digest("base64url") === challenge; }
-function sameOriginPost(req: Request) { const origin = req.headers.origin; return !origin || origin === MCP_ISSUER; }
+export function sameOriginPost(req: Request) { const origin = req.headers.origin; return !origin || origin === MCP_ISSUER; }
+export function supportsPublicClientTokenExchange(metadata: OAuthClientMetadata) {
+  const methods = Array.isArray(metadata.token_endpoint_auth_methods_supported) ? metadata.token_endpoint_auth_methods_supported : [];
+  return methods.length > 0 ? methods.includes("none") : (!metadata.token_endpoint_auth_method || metadata.token_endpoint_auth_method === "none");
+}
 
 async function getClientMetadata(clientId: string, redirectUri: string) {
   const clientUrl = new URL(clientId);
   if (clientUrl.protocol !== "https:" || !clientUrl.pathname || clientUrl.pathname === "/" || !clientMetadataHosts.has(clientUrl.hostname)) throw new Error("This MCP client is not an approved ChatGPT or Manus metadata host.");
   const response = await fetch(clientUrl, { redirect: "error", signal: AbortSignal.timeout(5_000), headers: { accept: "application/json" } });
   if (!response.ok) throw new Error("The MCP client metadata document could not be verified.");
-  const metadata = await response.json() as { client_id?: string; client_name?: string; redirect_uris?: string[]; token_endpoint_auth_method?: string };
+  const metadata = await response.json() as OAuthClientMetadata;
   if (metadata.client_id !== clientId || !Array.isArray(metadata.redirect_uris) || !metadata.redirect_uris.includes(redirectUri)) throw new Error("The MCP client metadata and redirect address do not match.");
-  if (metadata.token_endpoint_auth_method && metadata.token_endpoint_auth_method !== "none") throw new Error("This MCP client authentication method is not supported.");
+  if (!supportsPublicClientTokenExchange(metadata)) throw new Error("This MCP client does not support Skootly’s PKCE public-client token exchange.");
   return { clientName: (metadata.client_name || "Connected AI").slice(0, 300) };
 }
 
@@ -84,7 +89,7 @@ async function callTool(userId: number, scopes: string, name: string, args: Reco
 
 export function registerMcpRoutes(app: { get: Function; post: Function }) {
   app.get("/.well-known/oauth-protected-resource/mcp", (_req: Request, res: Response) => res.set("Cache-Control", "public, max-age=300").json({ resource: MCP_RESOURCE, authorization_servers: [MCP_ISSUER], scopes_supported: MCP_SCOPES }));
-  app.get("/.well-known/oauth-authorization-server", (_req: Request, res: Response) => res.set("Cache-Control", "public, max-age=300").json({ issuer: MCP_ISSUER, authorization_endpoint: `${MCP_ISSUER}/oauth/authorize`, token_endpoint: `${MCP_ISSUER}/oauth/token`, revocation_endpoint: `${MCP_ISSUER}/oauth/revoke`, response_types_supported: ["code"], grant_types_supported: ["authorization_code"], code_challenge_methods_supported: ["S256"], token_endpoint_auth_methods_supported: ["none"], scopes_supported: MCP_SCOPES, client_id_metadata_document_supported: true }));
+  app.get("/.well-known/oauth-authorization-server", (_req: Request, res: Response) => res.set("Cache-Control", "public, max-age=300").json({ issuer: MCP_ISSUER, authorization_response_iss_parameter_supported: true, authorization_endpoint: `${MCP_ISSUER}/oauth/authorize`, token_endpoint: `${MCP_ISSUER}/oauth/token`, revocation_endpoint: `${MCP_ISSUER}/oauth/revoke`, response_types_supported: ["code"], grant_types_supported: ["authorization_code"], code_challenge_methods_supported: ["S256"], token_endpoint_auth_methods_supported: ["none"], scopes_supported: MCP_SCOPES, client_id_metadata_document_supported: true }));
   app.get("/oauth/authorize", async (req: Request, res: Response) => {
     try {
       const { response_type, client_id, redirect_uri, scope, resource, code_challenge, code_challenge_method, state } = req.query;
@@ -107,9 +112,9 @@ export function registerMcpRoutes(app: { get: Function; post: Function }) {
       if (!request || !user) throw new Error("Your connection request expired. Start again from your AI connection settings.");
       const decision = typeof req.body?.decision === "string" ? req.body.decision : "deny";
       const redirect = new URL(request.redirectUri);
-      if (decision !== "approve") { redirect.searchParams.set("error", "access_denied"); if (request.state) redirect.searchParams.set("state", request.state); res.redirect(303, redirect.toString()); return; }
+      if (decision !== "approve") { redirect.searchParams.set("error", "access_denied"); redirect.searchParams.set("iss", MCP_ISSUER); if (request.state) redirect.searchParams.set("state", request.state); res.redirect(303, redirect.toString()); return; }
       const code = randomBytes(32).toString("base64url"); await createMcpAuthorizationCode({ userId: user.id, clientId: request.clientId, clientName: request.clientName, redirectUri: request.redirectUri, scopes: request.scopes, resource: request.resource, codeChallenge: request.codeChallenge, rawCode: code });
-      redirect.searchParams.set("code", code); if (request.state) redirect.searchParams.set("state", request.state); res.redirect(303, redirect.toString());
+      redirect.searchParams.set("code", code); redirect.searchParams.set("iss", MCP_ISSUER); if (request.state) redirect.searchParams.set("state", request.state); res.redirect(303, redirect.toString());
     } catch (error) { res.status(400).type("html").send(`<h1>Skootly connection unavailable</h1><p>${escapeHtml(error instanceof Error ? error.message : "Invalid authorization request.")}</p>`); }
   });
   app.post("/oauth/token", async (req: Request, res: Response) => {
