@@ -793,6 +793,63 @@ export const creatorPackExecutionFeedback = mysqlTable(
   table => [index("pack_feedback_student_idx").on(table.studentUserId, table.createdAt), index("pack_feedback_creator_idx").on(table.creatorUserId, table.feedbackStatus, table.createdAt)],
 );
 
+/** Short-lived, single-use OAuth codes issued after a signed-in Skootly user approves an MCP connection. */
+export const mcpAuthorizationCodes = mysqlTable(
+  "mcp_authorization_codes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    codeHash: varchar("codeHash", { length: 64 }).notNull(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    clientId: varchar("clientId", { length: 2048 }).notNull(),
+    clientName: varchar("clientName", { length: 300 }).notNull(),
+    redirectUri: varchar("redirectUri", { length: 2048 }).notNull(),
+    scopes: varchar("scopes", { length: 500 }).notNull(),
+    resource: varchar("resource", { length: 2048 }).notNull(),
+    codeChallenge: varchar("codeChallenge", { length: 256 }).notNull(),
+    expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+    usedAt: bigint("usedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("mcp_auth_code_hash_unique").on(table.codeHash), index("mcp_auth_code_user_expiry").on(table.userId, table.expiresAt)],
+);
+
+/** Opaque hashed bearer tokens for a connected MCP client. Users may revoke these from Skootly at any time. */
+export const mcpAccessTokens = mysqlTable(
+  "mcp_access_tokens",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    clientId: varchar("clientId", { length: 2048 }).notNull(),
+    clientName: varchar("clientName", { length: 300 }).notNull(),
+    scopes: varchar("scopes", { length: 500 }).notNull(),
+    resource: varchar("resource", { length: 2048 }).notNull(),
+    expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+    revokedAt: bigint("revokedAt", { mode: "number" }),
+    lastUsedAt: bigint("lastUsedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("mcp_access_token_hash_unique").on(table.tokenHash), index("mcp_access_token_user_idx").on(table.userId, table.revokedAt, table.expiresAt)],
+);
+
+/** One explicit external feedback confirmation can be consumed only once for the exact enrolled Pack milestone it previewed. */
+export const mcpFeedbackConfirmations = mysqlTable(
+  "mcp_feedback_confirmations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    enrollmentId: int("enrollmentId").notNull().references(() => creatorPackEnrollments.id, { onDelete: "cascade" }),
+    milestonePosition: int("milestonePosition").notNull(),
+    feedbackStatus: mysqlEnum("feedbackStatus", ["done", "stuck", "not_today"]).notNull(),
+    detail: text("detail"),
+    expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+    usedAt: bigint("usedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  table => [uniqueIndex("mcp_feedback_token_unique").on(table.tokenHash), index("mcp_feedback_user_expiry").on(table.userId, table.expiresAt)],
+);
+
 export const supportProfiles = mysqlTable(
   "support_profiles",
   {
@@ -922,3 +979,6 @@ export type SupportProfile = typeof supportProfiles.$inferSelect;
 export type SmartEscalation = typeof smartEscalations.$inferSelect;
 export type SupportNotification = typeof supportNotifications.$inferSelect;
 export type IdentifiableContentConsent = typeof identifiableContentConsents.$inferSelect;
+export type McpAuthorizationCode = typeof mcpAuthorizationCodes.$inferSelect;
+export type McpAccessToken = typeof mcpAccessTokens.$inferSelect;
+export type McpFeedbackConfirmation = typeof mcpFeedbackConfirmations.$inferSelect;

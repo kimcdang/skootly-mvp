@@ -26,6 +26,9 @@ import {
   learningHomeworkItems,
   learningSourceAudit,
   learningSources,
+  mcpAccessTokens,
+  mcpAuthorizationCodes,
+  mcpFeedbackConfirmations,
   recommendations,
   recommendationLearningSources,
   skootPacks,
@@ -1256,6 +1259,80 @@ export async function recordMyPackExecutionFeedback(studentUserId: number, input
     }
   });
   return getMyPackExecution(studentUserId);
+}
+
+type McpScope = "skootly.packs.read" | "skootly.packs.feedback";
+
+export async function createMcpAuthorizationCode(input: { userId: number; clientId: string; clientName: string; redirectUri: string; scopes: McpScope[]; resource: string; codeChallenge: string; rawCode: string }) {
+  const db = await requireDb(); const now = Date.now();
+  await db.insert(mcpAuthorizationCodes).values({ codeHash: hashInviteToken(input.rawCode), userId: input.userId, clientId: input.clientId, clientName: input.clientName, redirectUri: input.redirectUri, scopes: input.scopes.join(" "), resource: input.resource, codeChallenge: input.codeChallenge, expiresAt: now + 5 * 60_000, createdAt: now });
+}
+
+export async function getMcpAuthorizationCode(rawCode: string) {
+  const db = await requireDb();
+  return (await db.select().from(mcpAuthorizationCodes).where(eq(mcpAuthorizationCodes.codeHash, hashInviteToken(rawCode))).limit(1))[0] ?? null;
+}
+
+export async function exchangeMcpAuthorizationCode(input: { rawCode: string; clientId: string; redirectUri: string; rawAccessToken: string }) {
+  const db = await requireDb(); const now = Date.now();
+  return db.transaction(async tx => {
+    const code = (await tx.select().from(mcpAuthorizationCodes).where(eq(mcpAuthorizationCodes.codeHash, hashInviteToken(input.rawCode))).limit(1))[0];
+    if (!code || code.clientId !== input.clientId || code.redirectUri !== input.redirectUri || code.usedAt || code.expiresAt <= now) throw new Error("Authorization code is invalid or expired.");
+    const used = await tx.update(mcpAuthorizationCodes).set({ usedAt: now }).where(and(eq(mcpAuthorizationCodes.id, code.id), isNull(mcpAuthorizationCodes.usedAt)));
+    if (!used[0]?.affectedRows) throw new Error("Authorization code has already been used.");
+    const expiresAt = now + 60 * 60_000;
+    await tx.insert(mcpAccessTokens).values({ tokenHash: hashInviteToken(input.rawAccessToken), userId: code.userId, clientId: code.clientId, clientName: code.clientName, scopes: code.scopes, resource: code.resource, expiresAt, createdAt: now });
+    return { expiresAt, scopes: code.scopes, resource: code.resource };
+  });
+}
+
+export async function getMcpAccessToken(rawAccessToken: string) {
+  const db = await requireDb(); const now = Date.now();
+  const token = (await db.select().from(mcpAccessTokens).where(eq(mcpAccessTokens.tokenHash, hashInviteToken(rawAccessToken))).limit(1))[0];
+  if (!token || token.revokedAt || token.expiresAt <= now) return null;
+  await db.update(mcpAccessTokens).set({ lastUsedAt: now }).where(eq(mcpAccessTokens.id, token.id));
+  return token;
+}
+
+export async function listMyMcpConnections(userId: number) {
+  const db = await requireDb(); const now = Date.now();
+  return db.select({ id: mcpAccessTokens.id, clientName: mcpAccessTokens.clientName, scopes: mcpAccessTokens.scopes, expiresAt: mcpAccessTokens.expiresAt, createdAt: mcpAccessTokens.createdAt, lastUsedAt: mcpAccessTokens.lastUsedAt, revokedAt: mcpAccessTokens.revokedAt }).from(mcpAccessTokens).where(and(eq(mcpAccessTokens.userId, userId), isNull(mcpAccessTokens.revokedAt), sql`${mcpAccessTokens.expiresAt} > ${now}`)).orderBy(desc(mcpAccessTokens.createdAt));
+}
+
+export async function revokeMyMcpConnection(userId: number, tokenId: number) {
+  const db = await requireDb();
+  const result = await db.update(mcpAccessTokens).set({ revokedAt: Date.now() }).where(and(eq(mcpAccessTokens.id, tokenId), eq(mcpAccessTokens.userId, userId), isNull(mcpAccessTokens.revokedAt)));
+  if (!result[0]?.affectedRows) throw new Error("Connection not found.");
+  return { success: true };
+}
+
+export async function createMcpFeedbackConfirmation(userId: number, input: { feedbackStatus: "done" | "stuck" | "not_today"; detail?: string; rawToken: string }) {
+  const state = await getMyPackExecution(userId);
+  if (!state?.current || state.enrollment.status !== "active") throw new Error("No active Pack milestone is ready for feedback.");
+  const db = await requireDb(); const now = Date.now(); const expiresAt = now + 10 * 60_000;
+  await db.insert(mcpFeedbackConfirmations).values({ tokenHash: hashInviteToken(input.rawToken), userId, enrollmentId: state.enrollment.id, milestonePosition: state.current.position, feedbackStatus: input.feedbackStatus, detail: input.detail?.trim() || null, expiresAt, createdAt: now });
+  return { confirmationToken: input.rawToken, expiresAt, milestoneTitle: state.current.title, feedbackStatus: input.feedbackStatus, detail: input.detail?.trim() || null };
+}
+
+export async function confirmMcpFeedback(userId: number, rawToken: string) {
+  const db = await requireDb(); const now = Date.now();
+  return db.transaction(async tx => {
+    const confirmation = (await tx.select().from(mcpFeedbackConfirmations).where(eq(mcpFeedbackConfirmations.tokenHash, hashInviteToken(rawToken))).limit(1))[0];
+    if (!confirmation || confirmation.userId !== userId || confirmation.usedAt || confirmation.expiresAt <= now) throw new Error("Feedback confirmation is invalid or expired.");
+    const enrollment = (await tx.select().from(creatorPackEnrollments).where(and(eq(creatorPackEnrollments.id, confirmation.enrollmentId), eq(creatorPackEnrollments.studentUserId, userId), eq(creatorPackEnrollments.status, "active"))).limit(1))[0];
+    if (!enrollment || enrollment.currentMilestonePosition !== confirmation.milestonePosition) throw new Error("That Pack step has changed. Prepare feedback again.");
+    const milestones = await tx.select().from(creatorPackMilestones).where(and(eq(creatorPackMilestones.packId, enrollment.packId), eq(creatorPackMilestones.versionId, enrollment.packVersionId))).orderBy(creatorPackMilestones.position);
+    const current = milestones.find(item => item.position === confirmation.milestonePosition);
+    if (!current) throw new Error("The requested Pack milestone is no longer available.");
+    const used = await tx.update(mcpFeedbackConfirmations).set({ usedAt: now }).where(and(eq(mcpFeedbackConfirmations.id, confirmation.id), isNull(mcpFeedbackConfirmations.usedAt)));
+    if (!used[0]?.affectedRows) throw new Error("Feedback confirmation has already been used.");
+    await tx.insert(creatorPackExecutionFeedback).values({ enrollmentId: enrollment.id, packId: enrollment.packId, packVersionId: enrollment.packVersionId, creatorUserId: enrollment.creatorUserId, studentUserId: userId, milestonePosition: current.position, feedbackStatus: confirmation.feedbackStatus, detail: confirmation.detail, createdAt: now });
+    if (confirmation.feedbackStatus === "done") {
+      const nextPosition = current.position + 1; const completed = !milestones.some(item => item.position === nextPosition);
+      await tx.update(creatorPackEnrollments).set({ currentMilestonePosition: nextPosition, status: completed ? "completed" : "active", completedAt: completed ? now : null, updatedAt: now }).where(and(eq(creatorPackEnrollments.id, enrollment.id), eq(creatorPackEnrollments.studentUserId, userId), eq(creatorPackEnrollments.status, "active")));
+    }
+    return { success: true, feedbackStatus: confirmation.feedbackStatus, milestoneTitle: current.title };
+  });
 }
 
 export async function rollEnrollmentToActiveVersion(creatorUserId: number, enrollmentId: number) {

@@ -1,0 +1,18 @@
+import { useAuth } from "@/_core/hooks/useAuth";
+import { MemphisShapes, SkootlyHeader } from "@/components/SkootlyHeader";
+import { Button } from "@/components/ui/button";
+import { Check, Copy, Link2, Loader2, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Link } from "wouter";
+import "./auth.css";
+
+const endpoint = "https://skootly.com/mcp";
+
+export default function ConnectedAi() {
+  const { user, loading } = useAuth({ redirectOnUnauthenticated: true, redirectPath: "/login?next=%2Fconnect-ai" });
+  const [copied, setCopied] = useState(false);
+  const copy = async () => { await navigator.clipboard.writeText(endpoint); setCopied(true); toast.success("Skootly MCP address copied."); window.setTimeout(() => setCopied(false), 1600); };
+  if (loading || !user) return <main className="auth-loading"><Loader2 className="size-6 animate-spin" /> Loading connection setup…</main>;
+  return <main className="account-page"><SkootlyHeader compact /><MemphisShapes quiet /><section className="account-shell"><span className="auth-kicker">CONNECTED AI · PRIVATE BETA</span><h1>Bring your Pack into chat.</h1><p>Connect a compatible ChatGPT or Manus MCP client, sign in to your Skootly account, and approve the exact Pack permissions you want to share.</p><div className="mt-5 rounded-2xl border-2 border-black bg-[#ffe36a] p-4"><div className="flex items-center gap-2"><Link2 className="size-5" /><b>Skootly MCP address</b></div><code className="mt-3 block overflow-x-auto rounded-lg bg-white p-3 text-sm">{endpoint}</code><Button className="mt-3" type="button" onClick={copy}>{copied ? <Check className="size-4" /> : <Copy className="size-4" />}{copied ? "Copied" : "Copy address"}</Button></div><section className="mt-7"><h2 className="text-2xl font-black">What the connection can do</h2><div className="mt-3 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border-2 border-black bg-white p-4"><b>Read your next move</b><p className="mt-1 text-sm text-stone-600">Your active Pack, current primary Skoot, optional support action, definition of done, and milestone progress.</p></div><div className="rounded-xl border-2 border-black bg-[#e0f6e9] p-4"><b>Record feedback only with confirmation</b><p className="mt-1 text-sm text-stone-600">An AI can prepare Done, Stuck, or Not Today feedback, but it cannot record or advance a Pack until you explicitly confirm it.</p></div></div></section><section className="mt-7 border-t-2 border-black pt-6"><h2 className="text-2xl font-black">What stays private</h2><p className="mt-2 flex gap-2 text-sm text-stone-700"><ShieldCheck className="size-5 shrink-0" />Skootly never gives a connected AI your password, credentials, raw private conversations, private learning imports, or someone else’s Pack. You can revoke an approved connection anytime from <Link className="font-bold underline" href="/account">Account security</Link>.</p></section><section className="mt-7 border-t-2 border-black pt-6"><h2 className="text-2xl font-black">Connection steps</h2><ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-stone-700"><li>In the MCP connection settings of your compatible AI, paste the Skootly address above.</li><li>When it opens Skootly, sign in and review the AI name plus requested permissions.</li><li>Approve only the permissions you want. Begin with Pack read access; feedback is optional.</li><li>Ask: “What is my current Skootly Pack next step?”</li></ol><p className="mt-4 text-xs text-stone-500">ChatGPT public plugin submission and Manus connector registration require each provider’s account-level OAuth review. This private endpoint is not a replacement for their review or approval.</p></section></section></main>;
+}

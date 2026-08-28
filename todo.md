@@ -207,3 +207,19 @@
 - [x] Create the MCP-compatible read-only tool contract, data-minimization requirements, user-facing setup copy, test plan, and store-listing draft required for a future ChatGPT app submission.
 - [x] Implement and verify the Pack Builder usability changes with TypeScript, 81 passing tests, a production build, and managed-project visual review; managed publishing can proceed while personal browser control remains paused.
 - [x] Keep control of the user’s browser paused for this release work; no personal-browser navigation was performed after the pause request, and future browser control still requires explicit user resumption.
+- [ ] Audit the current creator invitation, email/password onboarding, isolated-workspace, Pack Builder, and student-preview foundations before adding creator invitations.
+- [ ] Add secure revocable, expiring, single-use creator invitations that bind to one exact normalized email and create no shared access to the inviter’s Packs, students, conversations, or support queue.
+- [ ] Add a creator invite acceptance page that routes new invitees through email/password account creation or sign-in and then marks their independent creator workspace ready.
+- [ ] Add a clear Creator launch sequence showing only: shape or choose a Pack, review the student experience, approve a version, and invite the first student.
+- [ ] Add a student-view Pack preview that renders the current editable draft’s destination, milestone rail, one primary Skoot, optional support action, definition of done, feedback choices, resource links, and Not-Today boundary before approval.
+- [ ] Add regression tests for creator-invite opacity, email matching, expiration/revocation, cross-tenant denial, duplicate acceptance, independent workspace isolation, and preview action limits.
+- [ ] Run TypeScript, tests, production build, and responsive Creator invitation/preview verification before saving and checking the published release.
+- [x] Audit the existing external integration contracts, Pack execution helpers, public server boundaries, credential model, and current MCP guidance before exposing a remote MCP endpoint.
+- [x] Define an initial least-privilege Pack MCP tool set: read active Pack, read current next Skoot, read milestone progress, and prepare explicit Done/Stuck/Not Today feedback with no automatic writes.
+- [x] Add durable user-controlled connection authorization, revocation, one-hour token expiry, scope binding, and OAuth 2.1 authorization-code/PKCE requirements for compatible third-party ChatGPT and Manus connections.
+- [x] Implement an MCP-compatible HTTPS endpoint with protected-resource discovery, tool discovery, schema validation, structured JSON-RPC errors, tenant-bound authorization, and no raw student conversations, credentials, private imports, or unrelated-client data.
+- [x] Implement explicit two-step confirmation before recording Pack feedback from an external agent and preserve user ownership, enrolled Pack, version, and milestone context for every accepted external action.
+- [x] Create ChatGPT and Manus setup guidance that accurately states which provider/account steps remain required and does not claim public marketplace availability before provider review.
+- [x] Add protocol, scope, PKCE, trusted-origin, tool-schema, confirmation, revocation-control, and feedback-ownership regression coverage; run TypeScript, 85 passing tests with one optional HighLevel live-credential test skipped, a production build, and desktop/mobile managed-preview verification.
+- [x] Keep the MCP integration limited to user-authorized Skootly Pack data and explicit feedback; do not add Skool scraping, a browser extension, automated module capture, or course-platform automation.
+- [ ] Perform a real provider-side connection test with the exact ChatGPT or Manus OAuth client metadata and redirect URI after the user explicitly resumes browser control; do not claim provider-specific compatibility before that test.

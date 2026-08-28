@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { sdk } from "../_core/sdk";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { createCredentialUser, getCredentialByEmail, getCredentialForUser, setUserPasswordCredential, touchUserSignIn } from "../db";
+import { createCredentialUser, getCredentialByEmail, getCredentialForUser, listMyMcpConnections, revokeMyMcpConnection, setUserPasswordCredential, touchUserSignIn } from "../db";
 import { assertCredentialAttemptAllowed, createLocalOpenId, hashPassword, normalizeEmail, recordCredentialAttempt, verifyPassword } from "../passwordAuth";
 
 const emailSchema = z.string().trim().email().max(320).transform(normalizeEmail);
@@ -23,6 +23,8 @@ async function issueSession(ctx: { req: any; res: any }, user: { openId: string;
 export const authRouter = router({
   me: publicProcedure.query(opts => opts.ctx.user),
   credentialStatus: protectedProcedure.query(async ({ ctx }) => ({ hasPassword: Boolean(await getCredentialForUser(ctx.user.id)), email: ctx.user.email })),
+  mcpConnections: protectedProcedure.query(({ ctx }) => listMyMcpConnections(ctx.user.id)),
+  revokeMcpConnection: protectedProcedure.input(z.object({ tokenId: z.number().int().positive() })).mutation(({ ctx, input }) => revokeMyMcpConnection(ctx.user.id, input.tokenId)),
   register: publicProcedure.input(z.object({ name: z.string().trim().min(2).max(120), email: emailSchema, password: passwordSchema })).mutation(async ({ ctx, input }) => {
     const passwordHash = await hashPassword(input.password);
     try {

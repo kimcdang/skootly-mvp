@@ -12,8 +12,17 @@ Tool responses must be minimized to the client-success question. They must not r
 
 The current password login is a web-app session, not a full OAuth 2.1 authorization server. It is not sufficient to submit an authenticated ChatGPT app. We should first add a dedicated OAuth authorization layer or configure a proven OAuth provider, deploy a stable MCP host, publish policy/support/terms pages, and build a reviewer-safe demo tenant. No customer data should be exposed to ChatGPT until those requirements are implemented and independently tested.
 
+## MCP transport and authorization implementation notes — updated 2026-08-28
+
+Skootly’s remote endpoint uses Streamable HTTP at one HTTPS `/mcp` URL, accepts JSON-RPC requests by `POST`, and returns an HTTP `401` Bearer challenge with protected-resource metadata when access is absent. The MCP specification requires HTTP transports to validate a supplied `Origin` header and recommends authenticated connections. Its OAuth model requires protected-resource metadata, OAuth authorization-server discovery, an OAuth 2.1 authorization-code flow with PKCE, resource binding, and least-privilege scopes. Skootly therefore exposes `skootly.packs.read` and optional `skootly.packs.feedback`, with all Pack feedback remaining an explicit two-step confirmation. [4] [5]
+
+Skootly must not claim broad ChatGPT compatibility until a real ChatGPT client metadata document and redirect URI have been verified in developer mode. The external client’s OAuth metadata, exact redirect URI, and public-client PKCE flow must be validated before issuing a token. [4] [6]
+
 ## References
 
 [1]: https://developers.openai.com/plugins/deploy/submission "OpenAI Developers: Submit plugins"
 [2]: https://developers.openai.com/plugins/build/auth "OpenAI Developers: Authentication"
 [3]: https://developers.openai.com/plugins/app-guidelines "OpenAI Developers: Plugin guidelines"
+[4]: https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization "Model Context Protocol: Authorization"
+[5]: https://modelcontextprotocol.io/specification/2025-11-25/basic/transports "Model Context Protocol: Transports"
+[6]: https://developers.openai.com/api/docs/mcp "OpenAI: Building MCP servers for plugins and API integrations"
