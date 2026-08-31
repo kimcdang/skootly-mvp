@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { creatorKnowledgeTypes, proposeCreatorKnowledge } from "../creatorPacks";
-import { acceptCreatorPackInvite, acceptCreatorWorkspaceInvite, approveCreatorPackProposal, assignCreatorPackStudent, cancelCreatorPackProposal, createCreatorPack, createCreatorPackInvite, createCreatorPackProposal, createCreatorWorkspaceInvite, createGuidedCreatorPack, getCreatorPackBuilder, getCreatorPackInsights, getCreatorPackInvitePreview, getCreatorPackInvites, getCreatorPackOperatingView, getCreatorPacks, getCreatorPackProposals, getCreatorWorkspaceInvitePreview, getCreatorWorkspaceInvites, getMyPackExecution, getMyPackJourney, publishGuidedCreatorPackRevision, recordMyPackExecutionFeedback, revokeCreatorPackInvite, revokeCreatorWorkspaceInvite, rollEnrollmentToActiveVersion, saveMyPackDiagnosticAnswer } from "../db";
+import { acceptCreatorPackInvite, acceptCreatorWorkspaceInvite, approveCreatorPackProposal, assignCreatorPackStudent, cancelCreatorPackProposal, completeCoachOnboarding, createCreatorPack, createCreatorPackInvite, createCreatorPackProposal, createCreatorWorkspaceInvite, createGuidedCreatorPack, getCoachOnboarding, getCreatorPackBuilder, getCreatorPackInsights, getCreatorPackInvitePreview, getCreatorPackInvites, getCreatorPackOperatingView, getCreatorPacks, getCreatorPackProposals, getCreatorWorkspaceInvitePreview, getCreatorWorkspaceInvites, getMyPackExecution, getMyPackJourney, publishGuidedCreatorPackRevision, recordMyPackExecutionFeedback, revokeCreatorPackInvite, revokeCreatorWorkspaceInvite, rollEnrollmentToActiveVersion, saveCoachOnboardingMethod, saveCoachOnboardingProfile, saveMyPackDiagnosticAnswer, selectCoachOnboardingRole } from "../db";
 import { packTemplateKinds, starterPackDraft, validatePackBlueprintDraft } from "../packMvp";
 import { shapePackFromNotes } from "../packAuthoring";
 
@@ -61,4 +61,9 @@ export const creatorPacksRouter = router({
   revokeCreatorInvite: protectedProcedure.input(z.object({ inviteId: z.number().int().positive() })).mutation(({ ctx, input }) => revokeCreatorWorkspaceInvite(ctx.user.id, input.inviteId)),
   creatorInvitePreview: publicProcedure.input(z.object({ token: z.string().min(40).max(200) })).query(({ input }) => getCreatorWorkspaceInvitePreview(input.token)),
   acceptCreatorInvite: protectedProcedure.input(z.object({ token: z.string().min(40).max(200) })).mutation(({ ctx, input }) => acceptCreatorWorkspaceInvite(ctx.user.id, ctx.user.email, input.token)),
+  onboarding: protectedProcedure.query(({ ctx }) => getCoachOnboarding(ctx.user.id)),
+  selectOnboardingRole: protectedProcedure.input(z.object({ selectedRole: z.enum(["coach", "student"]) })).mutation(({ ctx, input }) => selectCoachOnboardingRole(ctx.user.id, input.selectedRole)),
+  saveOnboardingProfile: protectedProcedure.input(z.object({ displayName: z.string().trim().min(2).max(300), avatarUrl: z.string().trim().url().max(2048).refine(value => /^https:\/\//i.test(value), "Use a full HTTPS link.").optional().or(z.literal("")), offer: z.string().trim().min(5).max(3000), audience: z.string().trim().min(2).max(3000), templateKind })).mutation(({ ctx, input }) => saveCoachOnboardingProfile(ctx.user.id, input)),
+  saveOnboardingMethod: protectedProcedure.input(z.object({ methodNotes: z.string().trim().min(50).max(6000), methodSourceKind: z.enum(["notes", "file", "template"]), sourceFileName: z.string().trim().max(500).optional() })).mutation(({ ctx, input }) => saveCoachOnboardingMethod(ctx.user.id, input)),
+  completeOnboarding: protectedProcedure.input(z.object({ packId: z.number().int().positive() })).mutation(({ ctx, input }) => completeCoachOnboarding(ctx.user.id, input.packId)),
 });

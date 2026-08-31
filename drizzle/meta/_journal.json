@@ -113,6 +113,13 @@
       "when": 1787888578546,
       "tag": "0015_reflective_medusa",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1788219330128,
+      "tag": "0016_wandering_sabretooth",
+      "breakpoints": true
     }
   ]
 }

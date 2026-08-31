@@ -9,7 +9,8 @@ import { toast } from "sonner";
 
 type TemplateKind = "five_day_challenge" | "client_implementation";
 type Milestone = { position: number; title: string; definitionOfDone: string; defaultSkoot: string; supportingSkoot?: string; feedbackPrompt: string; resourceUrl?: string; assetSpec?: string; notToday?: string };
-type Draft = { templateKind: TemplateKind; name: string; description?: string; destination: string; audience: string; cadenceLabel: string; notToday?: string; milestones: Milestone[] };
+export type GuidedPackDraft = { templateKind: TemplateKind; name: string; description?: string; destination: string; audience: string; cadenceLabel: string; notToday?: string; milestones: Milestone[] };
+type Draft = GuidedPackDraft;
 
 const templateCopy: Record<TemplateKind, { title: string; description: string }> = {
   five_day_challenge: { title: "5-Day Challenge", description: "A short cohort path with a clear before, after, and daily next move." },
@@ -20,7 +21,7 @@ const emptyDraft: Draft = { templateKind: "five_day_challenge", name: "", descri
 
 function normalizePositions(milestones: Milestone[]) { return milestones.map((milestone, index) => ({ ...milestone, position: index + 1 })); }
 
-export function GuidedPackBuilder({ packId, onPublished }: { packId?: number | null; onPublished: (packId: number) => Promise<void> | void }) {
+export function GuidedPackBuilder({ packId, initialDraft, onPublished }: { packId?: number | null; initialDraft?: GuidedPackDraft | null; onPublished: (packId: number) => Promise<void> | void }) {
   const utils = trpc.useUtils();
   const [templateKind, setTemplateKind] = useState<TemplateKind>("five_day_challenge");
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -35,6 +36,14 @@ export function GuidedPackBuilder({ packId, onPublished }: { packId?: number | n
   const operating = trpc.creatorPacks.operatingView.useQuery({ packId: packId ?? 0 }, { enabled: Boolean(packId) });
 
   useEffect(() => {
+    if (!packId && initialDraft && !draftHydrated) {
+      setTemplateKind(initialDraft.templateKind);
+      setDraft({ ...initialDraft, milestones: normalizePositions(initialDraft.milestones) });
+      setDraftHydrated(true);
+    }
+  }, [draftHydrated, initialDraft, packId]);
+
+  useEffect(() => {
     if (packId && builder.data?.blueprint && !draftHydrated) {
       setDraft({ templateKind: builder.data.blueprint.templateKind, name: builder.data.pack.name, description: builder.data.pack.description || "", destination: builder.data.blueprint.destination, audience: builder.data.blueprint.audience, cadenceLabel: builder.data.blueprint.cadenceLabel, notToday: builder.data.blueprint.notToday || "", milestones: builder.data.milestones.map(item => ({ position: item.position, title: item.title, definitionOfDone: item.definitionOfDone, defaultSkoot: item.defaultSkoot, supportingSkoot: item.supportingSkoot || "", feedbackPrompt: item.feedbackPrompt, resourceUrl: item.resourceUrl || "", assetSpec: item.assetSpec || "", notToday: item.notToday || "" })) });
       setDraftHydrated(true);
@@ -42,8 +51,8 @@ export function GuidedPackBuilder({ packId, onPublished }: { packId?: number | n
   }, [builder.data, draftHydrated, packId]);
 
   useEffect(() => {
-    if (starter.data && (!packId || (builder.data && !builder.data.blueprint))) { setDraft(starter.data); setDraftHydrated(true); }
-  }, [builder.data, packId, starter.data]);
+    if (!initialDraft && starter.data && (!packId || (builder.data && !builder.data.blueprint))) { setDraft(starter.data); setDraftHydrated(true); }
+  }, [builder.data, initialDraft, packId, starter.data]);
 
   const chooseTemplate = (kind: TemplateKind) => { setTemplateKind(kind); setDraftHydrated(false); setDraft(emptyDraft); };
   const updateMilestone = (index: number, patch: Partial<Milestone>) => setDraft(current => ({ ...current, milestones: current.milestones.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }));

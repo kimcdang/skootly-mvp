@@ -30,7 +30,7 @@ export default function AuthPage() {
   const nextPath = useMemo(safeNextPath, []);
   const previewGuest = import.meta.env.DEV && new URLSearchParams(window.location.search).get("preview") === "guest";
   const login = trpc.auth.login.useMutation({ onSuccess: async () => { await utils.auth.me.invalidate(); setLocation(nextPath); } });
-  const register = trpc.auth.register.useMutation({ onSuccess: async () => { await utils.auth.me.invalidate(); setLocation(nextPath); } });
+  const register = trpc.auth.register.useMutation({ onSuccess: async () => { await utils.auth.me.invalidate(); setLocation(nextPath === "/founder" ? "/onboarding" : nextPath); } });
   const pending = login.isPending || register.isPending;
   const error = clientError || login.error?.message || register.error?.message;
 

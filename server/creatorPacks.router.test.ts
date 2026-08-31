@@ -18,6 +18,11 @@ const mocks = vi.hoisted(() => ({
   acceptCreatorPackInvite: vi.fn(),
   acceptCreatorWorkspaceInvite: vi.fn(),
   revokeCreatorWorkspaceInvite: vi.fn(),
+  getCoachOnboarding: vi.fn(),
+  selectCoachOnboardingRole: vi.fn(),
+  saveCoachOnboardingProfile: vi.fn(),
+  saveCoachOnboardingMethod: vi.fn(),
+  completeCoachOnboarding: vi.fn(),
 }));
 
 vi.mock("./db", async importOriginal => ({
@@ -39,6 +44,11 @@ vi.mock("./db", async importOriginal => ({
   acceptCreatorPackInvite: mocks.acceptCreatorPackInvite,
   acceptCreatorWorkspaceInvite: mocks.acceptCreatorWorkspaceInvite,
   revokeCreatorWorkspaceInvite: mocks.revokeCreatorWorkspaceInvite,
+  getCoachOnboarding: mocks.getCoachOnboarding,
+  selectCoachOnboardingRole: mocks.selectCoachOnboardingRole,
+  saveCoachOnboardingProfile: mocks.saveCoachOnboardingProfile,
+  saveCoachOnboardingMethod: mocks.saveCoachOnboardingMethod,
+  completeCoachOnboarding: mocks.completeCoachOnboarding,
 }));
 
 import { appRouter } from "./routers";
@@ -121,5 +131,27 @@ describe("Creator Pack authenticated ownership contracts", () => {
     expect(mocks.revokeCreatorWorkspaceInvite).toHaveBeenCalledWith(7, 12);
     expect(mocks.getCreatorWorkspaceInvitePreview).toHaveBeenCalledWith("x".repeat(43));
     expect(mocks.acceptCreatorWorkspaceInvite).toHaveBeenCalledWith(42, "creator@example.com", "x".repeat(43));
+  });
+
+  it("keeps Coach onboarding selections, method notes, and completion bound to the signed-in Coach", async () => {
+    mocks.getCoachOnboarding.mockResolvedValue(null);
+    mocks.selectCoachOnboardingRole.mockResolvedValue({ userId: 7, selectedRole: "coach", stage: "profile" });
+    mocks.saveCoachOnboardingProfile.mockResolvedValue({ userId: 7, selectedRole: "coach", stage: "method" });
+    mocks.saveCoachOnboardingMethod.mockResolvedValue({ userId: 7, selectedRole: "coach", stage: "method" });
+    mocks.completeCoachOnboarding.mockResolvedValue({ userId: 7, selectedRole: "coach", stage: "launch", packId: 55 });
+    const caller = appRouter.createCaller(context(7));
+    const profile = { displayName: "Coach Kim", avatarUrl: "", offer: "Launch a focused challenge", audience: "Coaches", templateKind: "five_day_challenge" as const };
+
+    await caller.creatorPacks.onboarding();
+    await caller.creatorPacks.selectOnboardingRole({ selectedRole: "coach" });
+    await caller.creatorPacks.saveOnboardingProfile(profile);
+    await caller.creatorPacks.saveOnboardingMethod({ methodNotes: "I help coaches turn their knowledge into a focused five day challenge with one clear execution move each day.", methodSourceKind: "notes" });
+    await caller.creatorPacks.completeOnboarding({ packId: 55 });
+
+    expect(mocks.getCoachOnboarding).toHaveBeenCalledWith(7);
+    expect(mocks.selectCoachOnboardingRole).toHaveBeenCalledWith(7, "coach");
+    expect(mocks.saveCoachOnboardingProfile).toHaveBeenCalledWith(7, profile);
+    expect(mocks.saveCoachOnboardingMethod).toHaveBeenCalledWith(7, expect.objectContaining({ methodSourceKind: "notes" }));
+    expect(mocks.completeCoachOnboarding).toHaveBeenCalledWith(7, 55);
   });
 });

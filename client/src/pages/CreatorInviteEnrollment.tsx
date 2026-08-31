@@ -11,7 +11,7 @@ export default function CreatorInviteEnrollment() {
   const { user, loading } = useAuth();
   const token = params?.token || "";
   const preview = trpc.creatorPacks.creatorInvitePreview.useQuery({ token }, { enabled: token.length >= 40 });
-  const accept = trpc.creatorPacks.acceptCreatorInvite.useMutation({ onSuccess: () => setLocation("/creator") });
+  const accept = trpc.creatorPacks.acceptCreatorInvite.useMutation({ onSuccess: () => setLocation("/onboarding") });
   if (loading || preview.isLoading) return <main className="auth-loading"><Loader2 className="size-6 animate-spin" /> Opening your creator invitation…</main>;
   if (!preview.data) return <main className="auth-page"><MemphisShapes quiet /><section className="auth-shell auth-shell--signed-in"><BrandMark /><span className="auth-kicker">INVITATION UNAVAILABLE</span><h1>This creator invitation is no longer active.</h1><p>Ask the person who invited you for a new private link.</p><Button onClick={() => setLocation("/login")}><ArrowRight className="size-4" /> Go to Skootly</Button></section></main>;
   const next = `/creator/join/${token}`;

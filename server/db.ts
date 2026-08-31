@@ -6,6 +6,7 @@ import {
   businessActions,
   businessProfiles,
   breakdownNotes,
+  coachOnboardings,
   contentSkoots,
   creatorPackAssignments,
   creatorPackAttributions,
@@ -160,6 +161,94 @@ export async function setUserPasswordCredential(userId: number, email: string, p
 export async function touchUserSignIn(userId: number) {
   const db = await requireDb();
   await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, userId));
+}
+
+export type CoachOnboardingStage = "role" | "profile" | "method" | "review" | "launch" | "complete";
+
+export async function getCoachOnboarding(userId: number) {
+  const db = await requireDb();
+  return (await db.select().from(coachOnboardings).where(eq(coachOnboardings.userId, userId)).limit(1))[0] ?? null;
+}
+
+export async function selectCoachOnboardingRole(userId: number, selectedRole: "coach" | "student") {
+  const db = await requireDb();
+  const now = Date.now();
+  await db.insert(coachOnboardings).values({
+    userId,
+    selectedRole,
+    stage: selectedRole === "coach" ? "profile" : "complete",
+    completedAt: selectedRole === "student" ? now : null,
+    createdAt: now,
+    updatedAt: now,
+  }).onDuplicateKeyUpdate({ set: {
+    selectedRole,
+    stage: selectedRole === "coach" ? "profile" : "complete",
+    completedAt: selectedRole === "student" ? now : null,
+    updatedAt: now,
+  } });
+  return getCoachOnboarding(userId);
+}
+
+export async function saveCoachOnboardingProfile(userId: number, input: {
+  displayName: string;
+  avatarUrl?: string;
+  offer: string;
+  audience: string;
+  templateKind: "five_day_challenge" | "client_implementation";
+}) {
+  const db = await requireDb();
+  const now = Date.now();
+  await db.insert(coachOnboardings).values({
+    userId,
+    selectedRole: "coach",
+    stage: "method",
+    displayName: input.displayName,
+    avatarUrl: input.avatarUrl || null,
+    offer: input.offer,
+    audience: input.audience,
+    templateKind: input.templateKind,
+    createdAt: now,
+    updatedAt: now,
+  }).onDuplicateKeyUpdate({ set: {
+    selectedRole: "coach",
+    stage: "method",
+    displayName: input.displayName,
+    avatarUrl: input.avatarUrl || null,
+    offer: input.offer,
+    audience: input.audience,
+    templateKind: input.templateKind,
+    updatedAt: now,
+  } });
+  return getCoachOnboarding(userId);
+}
+
+export async function saveCoachOnboardingMethod(userId: number, input: {
+  methodNotes: string;
+  methodSourceKind: "notes" | "file" | "template";
+  sourceFileName?: string;
+}) {
+  const db = await requireDb();
+  const existing = await getCoachOnboarding(userId);
+  if (!existing || existing.selectedRole !== "coach") throw new Error("COACH_ONBOARDING_REQUIRED");
+  await db.update(coachOnboardings).set({
+    stage: "method",
+    methodNotes: input.methodNotes,
+    methodSourceKind: input.methodSourceKind,
+    sourceFileName: input.sourceFileName || null,
+    updatedAt: Date.now(),
+  }).where(eq(coachOnboardings.userId, userId));
+  return getCoachOnboarding(userId);
+}
+
+export async function completeCoachOnboarding(userId: number, packId: number) {
+  const db = await requireDb();
+  const pack = (await db.select({ id: creatorSkootPacks.id }).from(creatorSkootPacks).where(and(eq(creatorSkootPacks.id, packId), eq(creatorSkootPacks.creatorUserId, userId))).limit(1))[0];
+  if (!pack) throw new Error("PACK_NOT_FOUND");
+  const existing = await getCoachOnboarding(userId);
+  if (!existing || existing.selectedRole !== "coach") throw new Error("COACH_ONBOARDING_REQUIRED");
+  const now = Date.now();
+  await db.update(coachOnboardings).set({ stage: "launch", packId, completedAt: now, updatedAt: now }).where(eq(coachOnboardings.userId, userId));
+  return getCoachOnboarding(userId);
 }
 
 export async function createCheckin(userId: number, input: DailyCheckinInput) {

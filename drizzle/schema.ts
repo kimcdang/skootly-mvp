@@ -53,6 +53,33 @@ export const userCredentials = mysqlTable(
   ],
 );
 
+/** A private first-run record for people setting up a Coach/Creator workspace. */
+export const coachOnboardings = mysqlTable(
+  "coach_onboardings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    selectedRole: mysqlEnum("selectedRole", ["coach", "student"]).notNull(),
+    stage: mysqlEnum("stage", ["role", "profile", "method", "review", "launch", "complete"]).default("role").notNull(),
+    displayName: varchar("displayName", { length: 300 }),
+    avatarUrl: varchar("avatarUrl", { length: 2048 }),
+    offer: text("offer"),
+    audience: text("audience"),
+    templateKind: mysqlEnum("templateKind", ["five_day_challenge", "client_implementation"]),
+    methodSourceKind: mysqlEnum("methodSourceKind", ["notes", "file", "template"]),
+    methodNotes: text("methodNotes"),
+    sourceFileName: varchar("sourceFileName", { length: 500 }),
+    packId: int("packId").references(() => creatorSkootPacks.id, { onDelete: "set null" }),
+    completedAt: bigint("completedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  table => [
+    uniqueIndex("coach_onboarding_user_uq").on(table.userId),
+    index("coach_onboarding_stage_idx").on(table.userId, table.stage),
+  ],
+);
+
 export const dailyCheckins = mysqlTable(
   "daily_checkins",
   {

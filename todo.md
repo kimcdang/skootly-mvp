@@ -235,3 +235,14 @@
 - [x] Update Skootly’s OAuth metadata, client registration, and authorization validation to support ChatGPT’s documented PKCE public-client method intersection, stable issuer identification, and exact callback validation without accepting arbitrary clients or weakening PKCE, redirect-URI, scope, or tenant checks.
 - [x] Add regression coverage for ChatGPT’s documented CIMD public-client pattern, retain rejection of private-key-only clients, and verify the exact client ID plus stable callback safely hand off to Skootly login locally.
 - [ ] Publish the OAuth compatibility fix, verify it locally, and guide the user through a safe Scan Tools retry without submitting the plugin or authorizing Pack access.
+- [x] Review the uploaded Coach onboarding adjustments document and map its recommendations to the current Skootly Creator/Coach Pack workflow.
+- [x] Produce an approval-ready Coach onboarding proposal for skootly.com, covering role entry, first-session outcome, method capture, Pack review, version approval, and first student invitation.
+- [x] Identify the exact MVP additions, deferrals, data/privacy safeguards, and decision points before any Coach onboarding implementation begins; implementation is blocked until the user explicitly says go.
+- [x] Audit the existing authentication, Creator Pack Builder, creator workspace, user profile, student invitation, and onboarding route foundations for the approved Coach first-session flow.
+- [x] Add a Coach/Creator versus student role selection immediately after new account registration without disrupting existing accounts or current invitation acceptance routes.
+- [x] Add a focused Coach identity and offer/outcome capture step with optional public avatar/logo URL, audience, and first-Pack template choice.
+- [x] Add a compliant method-capture step for coach-provided notes, client-side extracted text/PDF/worksheet/SOP files, or a guided template; prohibit third-party scraping and require an explicit no-private-data confirmation before Pack shaping.
+- [x] Connect the onboarding draft to the existing Shape my Pack flow, with an editable 3–7-milestone Pack and no auto-approval.
+- [x] Add a compact review checklist, student-view preview, immutable version approval, and launch sequence that leads directly to the first student invitation.
+- [x] Persist onboarding state and completion safely per user, add authenticated Coach onboarding router coverage, and preserve current Pack creation, approval gating, invitation access, student version pinning, and existing-user compatibility.
+- [x] Run TypeScript, 89 passing tests with one optional HighLevel live-credential test skipped, production build, and desktop/mobile onboarding entry verification; checkpoint and live-release verification remain next.
