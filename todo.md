@@ -223,18 +223,18 @@
 - [x] Add protocol, scope, PKCE, trusted-origin, tool-schema, confirmation, revocation-control, and feedback-ownership regression coverage; run TypeScript, 85 passing tests with one optional HighLevel live-credential test skipped, a production build, and desktop/mobile managed-preview verification.
 - [x] Keep the MCP integration limited to user-authorized Skootly Pack data and explicit feedback; do not add Skool scraping, a browser extension, automated module capture, or course-platform automation.
 - [ ] Perform a real provider-side connection test with the exact ChatGPT or Manus OAuth client metadata and redirect URI after the user explicitly resumes browser control; do not claim provider-specific compatibility before that test.
-- [ ] Identify the correct OpenAI developer surface for configuring a remote MCP connection; do not create API keys or modify project billing.
-- [ ] Enter and validate Skootly’s public MCP metadata only where the provider supports it, retaining least-privilege scopes and no autonomous Pack writes.
+- [x] Identify the correct OpenAI developer surface for configuring a remote MCP connection; no API keys or billing settings were changed.
+- [x] Enter and validate Skootly’s public MCP metadata where the provider supports it, retaining least-privilege scopes and no autonomous Pack writes.
 - [ ] Obtain confirmation before authorizing a live OAuth connection or saving/submitting a provider-side configuration.
 - [ ] Run the approved ChatGPT MCP connection test, record the outcome, and update setup guidance without publishing or widening access unless separately confirmed.
-- [ ] Configure the verified OpenAI developer account’s MCP plugin draft with Skootly’s endpoint and validate every provider-required field before requesting confirmation to save it.
+- [x] Configure the verified OpenAI developer account’s MCP plugin draft with Skootly’s endpoint, OAuth selection, verified domain, and successfully scanned MCP tool inventory; final review fields remain user-controlled.
 - [x] Serve the OpenAI-issued one-time domain verification value only at Skootly’s required `/.well-known/openai-apps-challenge` path through a protected environment value, with an endpoint-level test that validates the configured response without logging the value.
 - [x] Publish and externally verify that the exact well-known challenge URL returns the provider-issued value over HTTPS before the user clicks Verify Domain; the response matches the managed provider value without logging it.
-- [ ] Complete the OpenAI domain verification and scan Skootly’s declared MCP tools without authorizing a live user connection or submitting the plugin.
+- [x] Complete the OpenAI domain verification and scan Skootly’s declared MCP tools without authorizing a live user connection or submitting the plugin.
 - [x] Diagnose the reported ChatGPT OAuth error: ChatGPT’s Client ID Metadata Document advertises legacy `private_key_jwt` preference alongside supported methods including `none`, while Skootly previously treated the legacy field as exclusive.
 - [x] Update Skootly’s OAuth metadata, client registration, and authorization validation to support ChatGPT’s documented PKCE public-client method intersection, stable issuer identification, and exact callback validation without accepting arbitrary clients or weakening PKCE, redirect-URI, scope, or tenant checks.
 - [x] Add regression coverage for ChatGPT’s documented CIMD public-client pattern, retain rejection of private-key-only clients, and verify the exact client ID plus stable callback safely hand off to Skootly login locally.
-- [ ] Publish the OAuth compatibility fix, verify it locally, and guide the user through a safe Scan Tools retry without submitting the plugin or authorizing Pack access.
+- [x] Publish the OAuth compatibility fix, verify it locally, and guide the user through a safe Scan Tools retry; the OpenAI tool scan completed without submitting the plugin or authorizing Pack access.
 - [x] Review the uploaded Coach onboarding adjustments document and map its recommendations to the current Skootly Creator/Coach Pack workflow.
 - [x] Produce an approval-ready Coach onboarding proposal for skootly.com, covering role entry, first-session outcome, method capture, Pack review, version approval, and first student invitation.
 - [x] Identify the exact MVP additions, deferrals, data/privacy safeguards, and decision points before any Coach onboarding implementation begins; implementation is blocked until the user explicitly says go.
