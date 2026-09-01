@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   assignCreatorPackStudent: vi.fn(),
   createCreatorPackInvite: vi.fn(),
   createCreatorWorkspaceInvite: vi.fn(),
+  createPilotCreatorWorkspaceInvite: vi.fn(),
   createGuidedCreatorPack: vi.fn(),
   getCreatorPackInvitePreview: vi.fn(),
   getCreatorWorkspaceInvitePreview: vi.fn(),
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   saveCoachOnboardingProfile: vi.fn(),
   saveCoachOnboardingMethod: vi.fn(),
   completeCoachOnboarding: vi.fn(),
+  restartCoachOnboarding: vi.fn(),
 }));
 
 vi.mock("./db", async importOriginal => ({
@@ -31,6 +33,7 @@ vi.mock("./db", async importOriginal => ({
   assignCreatorPackStudent: mocks.assignCreatorPackStudent,
   createCreatorPackInvite: mocks.createCreatorPackInvite,
   createCreatorWorkspaceInvite: mocks.createCreatorWorkspaceInvite,
+  createPilotCreatorWorkspaceInvite: mocks.createPilotCreatorWorkspaceInvite,
   createGuidedCreatorPack: mocks.createGuidedCreatorPack,
   getCreatorPackInvitePreview: mocks.getCreatorPackInvitePreview,
   getCreatorWorkspaceInvitePreview: mocks.getCreatorWorkspaceInvitePreview,
@@ -49,6 +52,7 @@ vi.mock("./db", async importOriginal => ({
   saveCoachOnboardingProfile: mocks.saveCoachOnboardingProfile,
   saveCoachOnboardingMethod: mocks.saveCoachOnboardingMethod,
   completeCoachOnboarding: mocks.completeCoachOnboarding,
+  restartCoachOnboarding: mocks.restartCoachOnboarding,
 }));
 
 import { appRouter } from "./routers";
@@ -153,5 +157,17 @@ describe("Creator Pack authenticated ownership contracts", () => {
     expect(mocks.saveCoachOnboardingProfile).toHaveBeenCalledWith(7, profile);
     expect(mocks.saveCoachOnboardingMethod).toHaveBeenCalledWith(7, expect.objectContaining({ methodSourceKind: "notes" }));
     expect(mocks.completeCoachOnboarding).toHaveBeenCalledWith(7, 55);
+  });
+
+  it("binds safe onboarding replay and the single-pilot creator invite to the signed-in owner", async () => {
+    mocks.restartCoachOnboarding.mockResolvedValue({ userId: 7, selectedRole: "coach", stage: "profile" });
+    mocks.createPilotCreatorWorkspaceInvite.mockResolvedValue({ inviteId: 19, token: "x".repeat(43), expiresAt: 123 });
+    const caller = appRouter.createCaller(context(7));
+
+    await caller.creatorPacks.restartOnboarding();
+    await caller.creatorPacks.createPilotCreatorInvite({ email: "pilot@example.com", expiresInDays: 7 });
+
+    expect(mocks.restartCoachOnboarding).toHaveBeenCalledWith(7);
+    expect(mocks.createPilotCreatorWorkspaceInvite).toHaveBeenCalledWith(7, "pilot@example.com", 7);
   });
 });

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   dailyCheckins,
@@ -248,6 +248,26 @@ export async function completeCoachOnboarding(userId: number, packId: number) {
   if (!existing || existing.selectedRole !== "coach") throw new Error("COACH_ONBOARDING_REQUIRED");
   const now = Date.now();
   await db.update(coachOnboardings).set({ stage: "launch", packId, completedAt: now, updatedAt: now }).where(eq(coachOnboardings.userId, userId));
+  return getCoachOnboarding(userId);
+}
+
+/** Restarts only the caller's setup checklist. Packs, enrollments, outcomes, and invitations stay untouched. */
+export async function restartCoachOnboarding(userId: number) {
+  const db = await requireDb();
+  const now = Date.now();
+  await db.insert(coachOnboardings).values({
+    userId,
+    selectedRole: "coach",
+    stage: "profile",
+    createdAt: now,
+    updatedAt: now,
+  }).onDuplicateKeyUpdate({ set: {
+    selectedRole: "coach",
+    stage: "profile",
+    packId: null,
+    completedAt: null,
+    updatedAt: now,
+  } });
   return getCoachOnboarding(userId);
 }
 
@@ -1258,6 +1278,18 @@ export async function createCreatorWorkspaceInvite(inviterUserId: number, email:
   return { inviteId: invite.id, token, expiresAt };
 }
 
+/** The early pilot deliberately permits one unexpired pending creator invitation per inviter. */
+export async function createPilotCreatorWorkspaceInvite(inviterUserId: number, email: string, expiresInDays: number) {
+  const db = await requireDb();
+  const active = (await db.select({ id: creatorWorkspaceInvites.id }).from(creatorWorkspaceInvites).where(and(
+    eq(creatorWorkspaceInvites.inviterUserId, inviterUserId),
+    eq(creatorWorkspaceInvites.status, "pending"),
+    gt(creatorWorkspaceInvites.expiresAt, Date.now()),
+  )).limit(1))[0];
+  if (active) throw new Error("PILOT_INVITE_ALREADY_ACTIVE");
+  return createCreatorWorkspaceInvite(inviterUserId, email, expiresInDays);
+}
+
 export async function getCreatorWorkspaceInvites(inviterUserId: number) {
   const db = await requireDb(); const now = Date.now();
   const invites = await db.select({ id: creatorWorkspaceInvites.id, email: creatorWorkspaceInvites.email, status: creatorWorkspaceInvites.status, expiresAt: creatorWorkspaceInvites.expiresAt, acceptedAt: creatorWorkspaceInvites.acceptedAt, revokedAt: creatorWorkspaceInvites.revokedAt, createdAt: creatorWorkspaceInvites.createdAt }).from(creatorWorkspaceInvites).where(eq(creatorWorkspaceInvites.inviterUserId, inviterUserId)).orderBy(desc(creatorWorkspaceInvites.createdAt));
@@ -1287,7 +1319,9 @@ export async function acceptCreatorWorkspaceInvite(userId: number, userEmail: st
     if (invite.email !== normalizedEmail) throw new Error("Sign in with the email address this creator invitation was created for.");
     const result = await tx.update(creatorWorkspaceInvites).set({ status: "accepted", acceptedUserId: userId, acceptedAt: now }).where(and(eq(creatorWorkspaceInvites.id, invite.id), eq(creatorWorkspaceInvites.status, "pending")));
     if (!result[0]?.affectedRows) throw new Error("This creator invitation has already been used.");
-    return { success: true, creatorUrl: "/creator" };
+    const onboarding = (await tx.select({ userId: coachOnboardings.userId }).from(coachOnboardings).where(eq(coachOnboardings.userId, userId)).limit(1))[0];
+    if (!onboarding) await tx.insert(coachOnboardings).values({ userId, selectedRole: "coach", stage: "profile", createdAt: now, updatedAt: now });
+    return { success: true, creatorUrl: "/onboarding" };
   });
 }
 

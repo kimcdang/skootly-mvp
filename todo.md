@@ -246,3 +246,15 @@
 - [x] Add a compact review checklist, student-view preview, immutable version approval, and launch sequence that leads directly to the first student invitation.
 - [x] Persist onboarding state and completion safely per user, add authenticated Coach onboarding router coverage, and preserve current Pack creation, approval gating, invitation access, student version pinning, and existing-user compatibility.
 - [x] Run TypeScript, 89 passing tests with one optional HighLevel live-credential test skipped, production build, and desktop/mobile onboarding entry verification; checkpoint and live-release verification remain next.
+- [ ] Authorize ChatGPT only against the isolated fictional Skootly reviewer account with least-privilege Pack scopes; do not use personal data or submit the plugin.
+- [ ] Run and document the five approved reviewer MCP cases through the provider-connected workflow, preserving explicit confirmation for all feedback writes.
+- [ ] Request separate user confirmation before any OpenAI plugin submission after the isolated connection test is complete.
+- [x] Diagnose why the published Coach onboarding route is not surfaced to the existing signed-in user: pre-existing accounts have no onboarding row, so `/creator` previously fell directly through to the legacy configuration-first workspace.
+- [x] Route a signed-in user with no chosen onboarding role into the Coach/Creator role-and-Pack setup flow without interrupting student enrollment or completed Coach workspaces.
+- [x] Add a visually dominant Creator launch entry for existing users through the dedicated role screen’s “Set up my first Pack” action and a safe “Test Coach setup again” replay entry for established creators.
+- [x] Verify the existing-user route behavior on desktop/mobile, TypeScript, 90 passing tests with one optional HighLevel live-credential test skipped, and a clean production build; live correction verification remains next.
+- [x] Audit existing onboarding state, creator invitations, and account ownership for a safe one-creator pilot.
+- [x] Add a user-owned Coach onboarding rehearsal that can be started and reset without deleting existing Packs, students, outcomes, or creator workspace data.
+- [x] Add a one-creator pilot invitation path that creates one independent, email-matched creator workspace with no access to the inviter’s or other creators’ data.
+- [x] Add compact pilot status directly in Creator launch: one active pilot blocks another creation, while the invite list displays pending, accepted, revoked, or expired state.
+- [x] Add user-ownership regression coverage for replay and pilot invitation forwarding; database helpers enforce the one-active-pilot limit, exact email matching, expiry, revocation, and isolated workspace creation. Run TypeScript, the full suite, build, and responsive desktop/mobile entry verification; checkpoint and live verification remain next.
