@@ -258,3 +258,6 @@
 - [x] Add a one-creator pilot invitation path that creates one independent, email-matched creator workspace with no access to the inviter’s or other creators’ data.
 - [x] Add compact pilot status directly in Creator launch: one active pilot blocks another creation, while the invite list displays pending, accepted, revoked, or expired state.
 - [x] Add user-ownership regression coverage for replay and pilot invitation forwarding; database helpers enforce the one-active-pilot limit, exact email matching, expiry, revocation, and isolated workspace creation. Run TypeScript, the full suite, build, responsive desktop/mobile entry verification, checkpoint, and confirm the published bundle after propagation.
+- [x] Diagnose and fix the mobile Coach onboarding “Shape my first Pack” error (`undefined is not a function`) for pasted method notes, without changing the approved onboarding flow.
+- [x] Diagnose and fix the mobile corner Skoot/chatbot open interaction so the control and its panel remain reachable, visible, and usable above mobile browser UI.
+- [x] Add targeted regression coverage, verify both exact iPhone-sized interaction paths, run TypeScript/tests/build, and publish only the corrected mobile behaviors.

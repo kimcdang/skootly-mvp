@@ -132,17 +132,17 @@
 }
 
 @media (max-width: 640px) {
-  .mascot-dock { right: -8px; bottom: max(10px, env(safe-area-inset-bottom)); width: 60px; }
-  .mascot-anchor { width: 56px; height: 56px; }
-  .mascot-character { width: 54px; height: 54px; border: 2px solid var(--ink); border-radius: 50%; background: white; overflow: hidden; box-shadow: 2px 2px 0 var(--lilac); animation: none; }
+  .mascot-dock { right: max(12px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 100; width: 64px; transform: none !important; will-change: auto; touch-action: manipulation; pointer-events: auto; }
+  .mascot-anchor { width: 64px; height: 64px; }
+  .mascot-character { width: 60px; height: 60px; border: 2px solid var(--ink); border-radius: 50%; background: white; overflow: hidden; box-shadow: 2px 2px 0 var(--lilac); animation: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   .mascot-character img { transform: scale(1.12); }
   .mascot-drag { display: none; }
   .mascot-minimize { display: none; }
-  .mascot-notice, .mascot-panel { position: fixed; left: 12px; right: 12px; bottom: calc(104px + env(safe-area-inset-bottom)); width: auto; border-radius: 20px; }
+  .mascot-notice, .mascot-panel { position: fixed; z-index: 101; left: 12px; right: 12px; bottom: calc(100px + env(safe-area-inset-bottom)); width: auto; max-height: calc(100dvh - 124px - env(safe-area-inset-top)); overflow-y: auto; border-radius: 20px; touch-action: pan-y; }
   .mascot-notice::after, .mascot-panel::after { display: none; }
-  .mascot-dock--minimized { width: 58px; }
-  .mascot-dock--minimized .mascot-anchor { width: 56px; height: 56px; }
-  .mascot-dock--minimized .mascot-character { width: 54px; height: 54px; }
+  .mascot-dock--minimized { width: 64px; }
+  .mascot-dock--minimized .mascot-anchor { width: 64px; height: 64px; }
+  .mascot-dock--minimized .mascot-character { width: 60px; height: 60px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

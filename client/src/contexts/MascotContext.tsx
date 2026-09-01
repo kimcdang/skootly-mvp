@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
+import { nextMascotPanelState } from "@/lib/mascotState";
 import { experimentFromPath, type ExperimentVersion } from "@shared/experiments";
 import { ArrowRight, ChevronDown, Grip, Sparkles, X } from "lucide-react";
 import {
@@ -279,7 +280,7 @@ export function MascotProvider({ children }: { children: ReactNode }) {
 
           <div className="mascot-anchor">
             {!minimized ? <button className="mascot-drag" aria-label="Drag mascot" onPointerDown={event => { dragStart.current = { pointerX: event.clientX, pointerY: event.clientY, x: drag.x, y: drag.y }; }}><Grip className="size-4" /></button> : null}
-            <button className="mascot-character" aria-label={panelOpen ? "Close Skootly coach" : "Open Skootly coach"} onClick={() => { if (minimized) { setMinimized(false); localStorage.setItem(MINIMIZED_KEY, "false"); } else { setPanelOpen(value => !value); if (notice) setNotice({ ...notice, read: true }); } }}>
+            <button type="button" className="mascot-character" aria-label={panelOpen ? "Close Skootly coach" : "Open Skootly coach"} onClick={() => { const next = nextMascotPanelState(minimized, panelOpen); setMinimized(next.minimized); setPanelOpen(next.panelOpen); localStorage.setItem(MINIMIZED_KEY, String(next.minimized)); if (notice) setNotice({ ...notice, read: true }); }}>
               <img src={MASCOT_ASSET} alt="Skootly mascot" />
               {thinking ? <span className="mascot-thinking"><Sparkles className="size-4" /></span> : null}
               {notice && !notice.read ? <span className="mascot-unread" /> : null}

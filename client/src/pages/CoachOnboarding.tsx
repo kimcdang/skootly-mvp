@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { toUsableGuidedPackDraft } from "@/lib/packDraft";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, ArrowRight, BookOpenCheck, Check, FileText, Loader2, Sparkles, Upload, UsersRound } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
@@ -111,15 +112,24 @@ export default function CoachOnboarding() {
     setReviewDraft({ ...starterDraft.data, destination: offer.trim(), audience: audience.trim() });
   };
 
-  const shapeFromMethod = async () => {
+  const shapeFromMethod = () => {
     if (!notesConfirmed || methodNotes.trim().length < 50) return;
-    try {
-      const draft = await shapeDraft.mutateAsync({ templateKind, notes: methodNotes.trim().slice(0, 6000), confirmedNoPrivateData: true });
-      await saveMethod.mutateAsync({ methodNotes: methodNotes.trim().slice(0, 6000), methodSourceKind, sourceFileName: sourceFileName || undefined });
-      setReviewDraft({ ...draft, destination: draft.destination || offer.trim(), audience: draft.audience || audience.trim() });
-    } catch {
-      // The mutation exposes its own safe message below; stay in the method step.
-    }
+    setFileError("");
+    const notes = methodNotes.trim().slice(0, 6000);
+    shapeDraft.mutate({ templateKind, notes, confirmedNoPrivateData: true }, {
+      onSuccess: response => {
+        const draft = toUsableGuidedPackDraft(response, { templateKind, destination: offer.trim(), audience: audience.trim() });
+        if (!draft) {
+          setFileError("Skootly did not receive a usable Pack draft. Please try again, or start with the template.");
+          return;
+        }
+        saveMethod.mutate({ methodNotes: notes, methodSourceKind, sourceFileName: sourceFileName || undefined }, {
+          onSuccess: () => setReviewDraft(draft),
+          onError: () => setFileError("Your draft is ready, but Skootly could not save the source notes. Please try once more before continuing."),
+        });
+      },
+      onError: () => setFileError("Skootly could not shape that draft just now. Please try again, or start with the template."),
+    });
   };
 
   if (loading || onboarding.isLoading) return <main className="auth-loading"><Loader2 className="size-6 animate-spin" /> Preparing your Coach setup…</main>;

@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { useLocation } from "wouter";
 
 const blankPack = { name: "", description: "" };
-const labelFor = (kind: string) => kind.replaceAll("_", " ");
+const labelFor = (kind: string) => kind.replace(/_/g, " ");
 const date = (value?: number) => value ? new Date(value).toLocaleDateString() : "—";
 
 export default function CreatorPacks() {
